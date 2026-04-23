@@ -69,7 +69,7 @@
     "check:transpile": "rimraf src-esm && grunt transpile && git diff --exit-code -- src-esm/",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
-    "publish": "npm run build"
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "ros",
@@ -82,7 +82,7 @@
     "easeljs",
     "canvas"
   ],
-  "author": "Neoplanetz <hwchung98@gmail.com>",
+  "author": "Neoplanetz <neoplanetz@gmail.com>",
   "files": [
     "build",
     "LICENSE",
