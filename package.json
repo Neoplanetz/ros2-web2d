@@ -83,6 +83,12 @@
     "canvas"
   ],
   "author": "Neoplanetz <hwchung98@gmail.com>",
+  "files": [
+    "build",
+    "LICENSE",
+    "README.md",
+    "CHANGELOG.md"
+  ],
   "directories": {
     "example": "examples"
   },
