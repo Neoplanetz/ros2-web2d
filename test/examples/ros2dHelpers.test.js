@@ -11,7 +11,7 @@ vi.mock('createjs-module', () => {
 
 vi.mock('roslib', () => ({}));
 
-vi.mock('ros2d', () => ({
+vi.mock('ros2-web2d', () => ({
   Axis: class {},
   GridLines: class {},
   PanView: class {

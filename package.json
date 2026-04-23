@@ -85,5 +85,8 @@
   "author": "Neoplanetz <hwchung98@gmail.com>",
   "directories": {
     "example": "examples"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }
