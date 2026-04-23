@@ -38,7 +38,7 @@ jobs:
         cd examples
         npm install
         npm run build
-    - uses: stefanzweifel/git-auto-commit-action@v5
+    - uses: stefanzweifel/git-auto-commit-action@v7
       if: ${{ github.event_name == 'push' && endsWith(github.ref, 'develop') && matrix.node_version == 20 }}
       with:
         commit_message: Update Build
