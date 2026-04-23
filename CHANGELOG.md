@@ -3,7 +3,21 @@
 All notable changes to this project are documented here.
 The project follows [Semantic Versioning](https://semver.org/).
 
-## Unreleased
+## [1.4.0] — 2026-04-24
+
+### Added
+
+- **`OccupancyGrid` colorizer** — new `options.colorizer` accepts a
+  preset name (`'map'`, `'costmap'`) or a custom
+  `(value) => [r, g, b, a]` function. The `'costmap'` preset renders
+  nav2 inflation as an rviz-style blue → cyan → yellow gradient with
+  pink inscribed and red lethal bands, and sets per-cell alpha so a
+  costmap overlays cleanly on a base `/map`.
+- **`OccupancyGridClient`** forwards the new `colorizer` option to
+  every grid it constructs, so the same client can be pointed at
+  `/local_costmap/costmap` with `colorizer: 'costmap'`.
+- Example studio's OccupancyGrid demo now exposes a colorizer select
+  so the costmap gradient is reachable from the live demo app.
 
 ### Changed
 

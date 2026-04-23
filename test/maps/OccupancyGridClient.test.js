@@ -103,6 +103,7 @@ globalThis.ROS2D.OccupancyGrid = function FakeOccupancyGrid(options) {
   this.y = 0;
   this.scaleX = 1;
   this.scaleY = 1;
+  this.colorizer = options.colorizer;
   const msg = options.message;
   if (msg && msg.info) {
     this.width = msg.info.width * msg.info.resolution;
@@ -208,6 +209,27 @@ describe('OccupancyGridClient (baseline, v1 API)', () => {
     topic.__emit(fakeMapMsg('robot_0/map'));
     client.unsubscribe();
     expect(tf.__subscriberCount('robot_0/map')).toBe(0);
+  });
+
+  it('forwards the colorizer option to each OccupancyGrid it constructs', () => {
+    const root = new FakeContainer();
+    const client = new globalThis.ROS2D.OccupancyGridClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: root,
+      colorizer: 'costmap', continuous: true,
+    });
+    const topic = fake.topics[fake.topics.length - 1];
+    topic.__emit(fakeMapMsg('map'));
+    expect(client.currentGrid.colorizer).toBe('costmap');
+
+    // custom function also forwards
+    const customFn = (value) => [value, 0, 0, 255];
+    const client2 = new globalThis.ROS2D.OccupancyGridClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: new FakeContainer(),
+      colorizer: customFn, continuous: true,
+    });
+    const topic2 = fake.topics[fake.topics.length - 1];
+    topic2.__emit(fakeMapMsg('map'));
+    expect(client2.currentGrid.colorizer).toBe(customFn);
   });
 
   it('without tfClient: behavior unchanged (no node)', () => {

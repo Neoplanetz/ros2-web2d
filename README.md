@@ -121,11 +121,38 @@ each marker's own `header.frame_id`, so a single `MarkerArray` mixing
 `/robot_0/odom` and `/robot_1/odom` frames renders each robot at its
 own TF position.
 
+## Costmap overlays
+
+`OccupancyGridClient` accepts a `colorizer` option that controls how
+each cell is painted. The `'map'` preset is the default grayscale
+renderer (free/occupied/unknown). The `'costmap'` preset implements an
+rviz-style inflation gradient — free and unknown cells are
+transparent, inflation goes blue → cyan → yellow, the inscribed band
+renders pink, and lethal (100) is red — with per-cell alpha scaling so
+a `/local_costmap/costmap` layer overlays cleanly on a base `/map`
+rendered in a lower `rootObject` layer.
+
+```js
+// Base /map, grayscale
+new OccupancyGridClient({ ros, topic: '/map', rootObject: viewer.scene });
+// nav2 local costmap on top of it
+new OccupancyGridClient({
+  ros,
+  topic: '/local_costmap/costmap',
+  colorizer: 'costmap',
+  rootObject: viewer.scene,
+});
+```
+
+Pass a function for full control: `colorizer: (value) => [r, g, b, a]`
+receives the raw cell value (`-1` for unknown, `0..100` for cost) and
+returns a 0..255 RGBA tuple.
+
 ## Client reference
 
 | Client | Topic type | Notes |
 |--------|------------|-------|
-| `OccupancyGridClient` | `nav_msgs/OccupancyGrid` | Continuous or one-shot; `tfClient` wraps the grid in a `SceneNode` |
+| `OccupancyGridClient` | `nav_msgs/OccupancyGrid` | Continuous or one-shot; `tfClient` wraps the grid in a `SceneNode`; `colorizer: 'costmap'` renders nav2 inflation gradients over a base map |
 | `ImageMapClient` | (none) | Loads `map.yaml` + image asset directly; supports `.png` / `.svg` / `.pgm` |
 | `MarkerArrayClient` | `visualization_msgs/MarkerArray` | Supports ADD / MODIFY / DELETE / DELETEALL and lifetimes |
 | `PathClient` | `nav_msgs/Path` | Draws the path through `PathShape` |

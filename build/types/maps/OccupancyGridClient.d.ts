@@ -22,11 +22,16 @@ export class OccupancyGridClient extends EventEmitter<string | symbol, any> {
      *   * rootObject (optional) - the root object to add this marker to
      *   * continuous (optional) - if the map should be continuously loaded (e.g., for SLAM)
      *   * tfClient (optional) - ROSLIB.TFClient or ROSLIB.ROS2TFClient
+     *   * colorizer (optional) - forwarded to ROS2D.OccupancyGrid; set to
+     *       'costmap' (or a custom function) to render nav2 costmap topics
+     *       such as /local_costmap/costmap with an inflation gradient
+     *       instead of grayscale.
      */
     constructor(options: any);
     continuous: any;
     rootObject: any;
     tfClient: any;
+    colorizer: any;
     node: any;
     currentGrid: createjs.Shape;
     rosTopic: ROSLIB.Topic<unknown>;

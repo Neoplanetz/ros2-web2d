@@ -22,6 +22,10 @@
  *   * rootObject (optional) - the root object to add this marker to
  *   * continuous (optional) - if the map should be continuously loaded (e.g., for SLAM)
  *   * tfClient (optional) - ROSLIB.TFClient or ROSLIB.ROS2TFClient
+ *   * colorizer (optional) - forwarded to ROS2D.OccupancyGrid; set to
+ *       'costmap' (or a custom function) to render nav2 costmap topics
+ *       such as /local_costmap/costmap with an inflation gradient
+ *       instead of grayscale.
  */
 ROS2D.OccupancyGridClient = function(options) {
   EventEmitter.call(this);
@@ -32,6 +36,7 @@ ROS2D.OccupancyGridClient = function(options) {
   this.continuous = options.continuous;
   this.rootObject = options.rootObject || new createjs.Container();
   this.tfClient = options.tfClient || null;
+  this.colorizer = options.colorizer || null;
   this.node = null;
 
   // current grid that is displayed
@@ -53,7 +58,8 @@ ROS2D.OccupancyGridClient = function(options) {
 
   this.rosTopic.subscribe(function(message) {
     var newGrid = new ROS2D.OccupancyGrid({
-      message : message
+      message : message,
+      colorizer: that.colorizer
     });
 
     if (that.tfClient) {
