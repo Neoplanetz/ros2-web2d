@@ -81,6 +81,13 @@ const { Viewer, OccupancyGridClient } = require('ros2-web2d');
 </script>
 ```
 
+> The browser global is `ROS2D`, kept for historical compatibility with
+> the original ros2djs API surface. ESM / CJS imports use the new
+> `ros2-web2d` specifier but the class names are unchanged, so
+> `ROS2D.Viewer` and `import { Viewer } from 'ros2-web2d'` refer to the
+> same constructor. A namespace rename (e.g. `ROS2WEB2D`) is deferred
+> to a future major release with a deprecation window.
+
 ## TF-aware rendering
 
 Every client that used to ignore `header.frame_id` now accepts an
@@ -90,7 +97,7 @@ hidden until the first transform arrives, and then composes the
 message's pose into the configured `fixedFrame`.
 
 ```js
-import { PoseStampedClient, OdometryClient, PathClient } from 'ros2d';
+import { PoseStampedClient, OdometryClient, PathClient } from 'ros2-web2d';
 
 const tfClient = new ROSLIB.ROS2TFClient({
   ros,
