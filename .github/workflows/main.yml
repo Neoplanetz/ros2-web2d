@@ -29,10 +29,10 @@ jobs:
       run: npm run lint
     - name: Check transpile drift
       run: npm run check:transpile
-    - name: Test
-      run: npm test
     - name: Build
       run: npm run build
+    - name: Test
+      run: npm test
     - name: Build example studio
       run: |
         cd examples
