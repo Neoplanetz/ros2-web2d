@@ -27460,44 +27460,79 @@ var OccupancyGrid = /*@__PURE__*/(function (superclass) {
     options = options || {};
     var message = options.message;
 
-    // Preset colorizers. Defined inline so the ES5→ES6 class transpiler
-    // doesn't try to lift them into the class body as static fields.
-    var PRESETS = {
-      map: function(value) {
-        if (value === 100) { return [0, 0, 0, 255]; }
-        if (value === 0) { return [255, 255, 255, 255]; }
-        return [127, 127, 127, 255];
-      },
-      costmap: function(value) {
-        if (value < 0 || value === 0) { return [0, 0, 0, 0]; }
-        if (value >= 100) { return [255, 0, 0, 180]; }
-        if (value === 99) { return [255, 128, 255, 180]; }
-        var t = value / 98;
-        var r, g, b;
-        if (t < 0.5) {
-          var tLow = t * 2;
-          r = 0;
-          g = Math.round(255 * tLow);
-          b = 255;
-        } else {
-          var tHi = (t - 0.5) * 2;
-          r = Math.round(255 * tHi);
-          g = 255;
-          b = Math.round(255 * (1 - tHi));
-        }
-        var alpha = Math.round(80 + t * 100);
-        return [r, g, b, alpha];
-      }
-    };
-
     var colorizerOption = options.colorizer;
-    var colorizer;
+
+    function writeMapPixel(image, index, value) {
+      var channel = 127;
+      if (value === 100) {
+        channel = 0;
+      } else if (value === 0) {
+        channel = 255;
+      }
+      image[index] = channel;
+      image[index + 1] = channel;
+      image[index + 2] = channel;
+      image[index + 3] = 255;
+    }
+
+    function writeCostmapPixel(image, index, value) {
+      if (value < 0 || value === 0) {
+        image[index] = 0;
+        image[index + 1] = 0;
+        image[index + 2] = 0;
+        image[index + 3] = 0;
+        return;
+      }
+      if (value >= 100) {
+        image[index] = 255;
+        image[index + 1] = 0;
+        image[index + 2] = 0;
+        image[index + 3] = 180;
+        return;
+      }
+      if (value === 99) {
+        image[index] = 255;
+        image[index + 1] = 128;
+        image[index + 2] = 255;
+        image[index + 3] = 180;
+        return;
+      }
+
+      var t = value / 98;
+      var red = 0;
+      var green = 255;
+      var blue = 255;
+      if (t < 0.5) {
+        green = Math.round(255 * (t * 2));
+      } else {
+        var tHi = (t - 0.5) * 2;
+        red = Math.round(255 * tHi);
+        blue = Math.round(255 * (1 - tHi));
+      }
+
+      image[index] = red;
+      image[index + 1] = green;
+      image[index + 2] = blue;
+      image[index + 3] = Math.round(80 + t * 100);
+    }
+
+    // Pick the per-pixel writer once: built-in presets write into the
+    // ImageData buffer directly (no per-pixel allocation), while a custom
+    // colorizer function still returns an [r, g, b, a] array per the
+    // public API contract and we copy that into the buffer.
+    var writePixel;
     if (typeof colorizerOption === 'function') {
-      colorizer = colorizerOption;
-    } else if (typeof colorizerOption === 'string' && PRESETS[colorizerOption]) {
-      colorizer = PRESETS[colorizerOption];
+      writePixel = function(image, index, value) {
+        var rgba = colorizerOption(value);
+        image[index]     = rgba[0];
+        image[index + 1] = rgba[1];
+        image[index + 2] = rgba[2];
+        image[index + 3] = rgba[3];
+      };
+    } else if (colorizerOption === 'costmap') {
+      writePixel = writeCostmapPixel;
     } else {
-      colorizer = PRESETS.map;
+      writePixel = writeMapPixel;
     }
 
     // internal drawing canvas
@@ -27513,12 +27548,8 @@ var OccupancyGrid = /*@__PURE__*/(function (superclass) {
       for (var col = 0; col < canvas.width; col++) {
         var mapI = col + ((canvas.height - row - 1) * canvas.width);
         var data = message.data[mapI];
-        var rgba = colorizer(data);
         var i = (col + (row * canvas.width)) * 4;
-        imageData.data[i]     = rgba[0];
-        imageData.data[i + 1] = rgba[1];
-        imageData.data[i + 2] = rgba[2];
-        imageData.data[i + 3] = rgba[3];
+        writePixel(imageData.data, i, data);
       }
     }
     context.putImageData(imageData, 0, 0);
@@ -27862,6 +27893,7 @@ var OccupancyGridSrvClient = /*@__PURE__*/(function (EventEmitter) {
     var ros = options.ros;
     var service = options.service || '/static_map';
     this.rootObject = options.rootObject || new createjsExports.Container();
+    this.colorizer = options.colorizer || null;
 
     // current grid that is displayed
     this.currentGrid = null;
@@ -27881,7 +27913,8 @@ var OccupancyGridSrvClient = /*@__PURE__*/(function (EventEmitter) {
       }
 
       that.currentGrid = new OccupancyGrid({
-        message : response.map
+        message : response.map,
+        colorizer: that.colorizer
       });
       that.rootObject.addChild(that.currentGrid);
 

@@ -15,9 +15,12 @@ export class OccupancyGridSrvClient extends EventEmitter<string | symbol, any> {
      *   * ros - the ROSLIB.Ros connection handle
      *   * service (optional) - the map topic to listen to, like '/static_map'
      *   * rootObject (optional) - the root object to add this marker to
+     *   * colorizer (optional) - forwarded to ROS2D.OccupancyGrid; accepts
+     *       the same presets/custom function as OccupancyGridClient
      */
     constructor(options: any);
     rootObject: any;
+    colorizer: any;
     currentGrid: any;
 }
 import EventEmitter from 'eventemitter3';
