@@ -57,6 +57,21 @@ function pa(poses) { return { poses: poses }; }
 function pose(x, y) { return { position: { x: x, y: y }, orientation: { x: 0, y: 0, z: 0, w: 1 } }; }
 
 describe('ROS2D.PoseArrayClient', () => {
+  it('forwards throttle_rate and other ROSLIB.Topic options', () => {
+    new PoseArrayClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: new FakeContainer(),
+      throttle_rate: 100, queue_size: 1, queue_length: 5,
+      compression: 'cbor', latch: true, reconnect_on_close: false,
+    });
+    const topic = fake.topics[fake.topics.length - 1];
+    expect(topic.opts.throttle_rate).toBe(100);
+    expect(topic.opts.queue_size).toBe(1);
+    expect(topic.opts.queue_length).toBe(5);
+    expect(topic.opts.compression).toBe('cbor');
+    expect(topic.opts.latch).toBe(true);
+    expect(topic.opts.reconnect_on_close).toBe(false);
+  });
+
   it('subscribes to /particlecloud as geometry_msgs/PoseArray by default', () => {
     new PoseArrayClient({ ros: new fake.ROSLIB.Ros(), rootObject: new FakeContainer() });
     const topic = fake.topics[fake.topics.length - 1];

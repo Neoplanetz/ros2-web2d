@@ -62,6 +62,21 @@ const PathClient = globalThis.ROS2D.PathClient;
 beforeEach(() => { fake.topics.length = 0; });
 
 describe('ROS2D.PathClient', () => {
+  it('forwards throttle_rate and other ROSLIB.Topic options', () => {
+    new PathClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: new FakeContainer(),
+      throttle_rate: 100, queue_size: 1, queue_length: 5,
+      compression: 'cbor', latch: true, reconnect_on_close: false,
+    });
+    const topic = fake.topics[fake.topics.length - 1];
+    expect(topic.opts.throttle_rate).toBe(100);
+    expect(topic.opts.queue_size).toBe(1);
+    expect(topic.opts.queue_length).toBe(5);
+    expect(topic.opts.compression).toBe('cbor');
+    expect(topic.opts.latch).toBe(true);
+    expect(topic.opts.reconnect_on_close).toBe(false);
+  });
+
   it('subscribes to /path as nav_msgs/Path by default and adds a PathShape', () => {
     const root = new FakeContainer();
     const c = new PathClient({ ros: new fake.ROSLIB.Ros(), rootObject: root });

@@ -26577,7 +26577,7 @@ var createjsExports = requireCreatejs();
 
 // import * as createjs from 'createjs-module';
 
-var REVISION = '1.4.0';
+var REVISION = '1.4.1';
 
 // convert the given global Stage coordinates to ROS coordinates
 createjsExports.Stage.prototype.globalToRos = function(x, y) {
@@ -27806,8 +27806,13 @@ var OccupancyGridClient = /*@__PURE__*/(function (EventEmitter) {
     this.rosTopic = new ROSLIB.Topic({
       ros : ros,
       name : topic,
-      messageType : 'nav_msgs/OccupancyGrid'
-      // compression : 'png'
+      messageType : 'nav_msgs/OccupancyGrid',
+      throttle_rate: options.throttle_rate,
+      queue_size: options.queue_size,
+      queue_length: options.queue_length,
+      compression: options.compression,
+      latch: options.latch,
+      reconnect_on_close: options.reconnect_on_close
     });
 
     this.rosTopic.subscribe(function(message) {
@@ -28038,7 +28043,13 @@ var OdometryClient = /*@__PURE__*/(function (EventEmitter) {
     this.rosTopic = new ROSLIB.Topic({
       ros: ros,
       name: this.topicName,
-      messageType: 'nav_msgs/Odometry'
+      messageType: 'nav_msgs/Odometry',
+      throttle_rate: options.throttle_rate,
+      queue_size: options.queue_size,
+      queue_length: options.queue_length,
+      compression: options.compression,
+      latch: options.latch,
+      reconnect_on_close: options.reconnect_on_close
     });
 
     this.rosTopic.subscribe(function(message) {
@@ -28175,7 +28186,13 @@ var PathClient = /*@__PURE__*/(function (EventEmitter) {
     this.rosTopic = new ROSLIB.Topic({
       ros: ros,
       name: this.topicName,
-      messageType: 'nav_msgs/Path'
+      messageType: 'nav_msgs/Path',
+      throttle_rate: options.throttle_rate,
+      queue_size: options.queue_size,
+      queue_length: options.queue_length,
+      compression: options.compression,
+      latch: options.latch,
+      reconnect_on_close: options.reconnect_on_close
     });
 
     this.rosTopic.subscribe(function(message) {
@@ -28255,7 +28272,13 @@ var PoseStampedClient = /*@__PURE__*/(function (EventEmitter) {
     this.rosTopic = new ROSLIB.Topic({
       ros: ros,
       name: this.topicName,
-      messageType: 'geometry_msgs/PoseStamped'
+      messageType: 'geometry_msgs/PoseStamped',
+      throttle_rate: options.throttle_rate,
+      queue_size: options.queue_size,
+      queue_length: options.queue_length,
+      compression: options.compression,
+      latch: options.latch,
+      reconnect_on_close: options.reconnect_on_close
     });
 
     this.rosTopic.subscribe(function(message) {
@@ -28340,7 +28363,13 @@ var PoseArrayClient = /*@__PURE__*/(function (EventEmitter) {
     this.rosTopic = new ROSLIB.Topic({
       ros: ros,
       name: this.topicName,
-      messageType: 'geometry_msgs/PoseArray'
+      messageType: 'geometry_msgs/PoseArray',
+      throttle_rate: options.throttle_rate,
+      queue_size: options.queue_size,
+      queue_length: options.queue_length,
+      compression: options.compression,
+      latch: options.latch,
+      reconnect_on_close: options.reconnect_on_close
     });
 
     this.rosTopic.subscribe(function(message) {
@@ -28521,7 +28550,13 @@ var LaserScanClient = /*@__PURE__*/(function (EventEmitter) {
     this.rosTopic = new ROSLIB.Topic({
       ros: ros,
       name: this.topicName,
-      messageType: 'sensor_msgs/LaserScan'
+      messageType: 'sensor_msgs/LaserScan',
+      throttle_rate: options.throttle_rate,
+      queue_size: options.queue_size,
+      queue_length: options.queue_length,
+      compression: options.compression,
+      latch: options.latch,
+      reconnect_on_close: options.reconnect_on_close
     });
 
     this.rosTopic.subscribe(function(message) {
@@ -28864,7 +28899,13 @@ var MarkerArrayClient = /*@__PURE__*/(function (EventEmitter) {
     this.rosTopic = new ROSLIB.Topic({
       ros: ros,
       name: this.topicName,
-      messageType: 'visualization_msgs/MarkerArray'
+      messageType: 'visualization_msgs/MarkerArray',
+      throttle_rate: options.throttle_rate,
+      queue_size: options.queue_size,
+      queue_length: options.queue_length,
+      compression: options.compression,
+      latch: options.latch,
+      reconnect_on_close: options.reconnect_on_close
     });
 
     this.rosTopic.subscribe(function(message) {

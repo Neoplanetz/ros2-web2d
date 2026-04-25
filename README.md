@@ -162,7 +162,26 @@ returns a 0..255 RGBA tuple.
 | `LaserScanClient` | `sensor_msgs/LaserScan` | 2D hit points with optional `sampleStep` / `maxRange` |
 
 Shared options on ROS-driven clients: `ros`, `topic`, `rootObject`,
-`tfClient`.
+`tfClient`. Every client also forwards the standard `ROSLIB.Topic`
+subscription options when supplied:
+
+| Option | Type | Notes |
+|--------|------|-------|
+| `throttle_rate` | number (ms) | Minimum interval between delivered messages |
+| `queue_size` | number | Server-side queue depth |
+| `queue_length` | number | Client-side queue depth |
+| `compression` | `'none'` / `'cbor'` / `'png'` | rosbridge compression scheme |
+| `latch` | boolean | Latch the last message for late subscribers |
+| `reconnect_on_close` | boolean | Auto-resubscribe after disconnect |
+
+```js
+new MarkerArrayClient({
+  ros, topic: '/markers', rootObject: viewer.scene,
+  throttle_rate: 100,    // 10 Hz cap
+  queue_size: 1,
+  compression: 'cbor',
+});
+```
 
 ## Example studio
 

@@ -45,6 +45,7 @@ globalThis.ROS2D.OccupancyGrid = function FakeOccupancyGrid(options) {
   this.y = 0;
   this.scaleX = 1;
   this.scaleY = 1;
+  this.colorizer = options.colorizer;
 };
 globalThis.ROS2D.OccupancyGrid.prototype.__proto__ = FakeBitmap.prototype;
 
@@ -65,5 +66,19 @@ describe('OccupancyGridSrvClient (v2 — plain object request)', () => {
     expect(svc._lastCall).toBeDefined();
     expect(typeof svc._lastCall.req).toBe('object');
     expect(svc._lastCall.req.constructor.name).toBe('Object');
+  });
+
+  it('forwards the colorizer option to the OccupancyGrid it constructs', () => {
+    const rootObject = { addChild: vi.fn(), getChildIndex: () => -1, removeChild: vi.fn() };
+    const client = new globalThis.ROS2D.OccupancyGridSrvClient({
+      ros: new fake.ROSLIB.Ros(),
+      rootObject,
+      service: '/static_map',
+      colorizer: 'costmap',
+    });
+    const svc = fake.services[fake.services.length - 1];
+    svc._lastCall.cb({ map: { info: { width: 1, height: 1, resolution: 1, origin: {} }, data: [0] } });
+
+    expect(client.currentGrid.colorizer).toBe('costmap');
   });
 });

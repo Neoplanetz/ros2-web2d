@@ -3,6 +3,22 @@
 All notable changes to this project are documented here.
 The project follows [Semantic Versioning](https://semver.org/).
 
+## [1.4.1] — 2026-04-26
+
+### Added
+
+- **ROSLIB.Topic options forwarded** by every topic-based client
+  (`MarkerArrayClient`, `OccupancyGridClient`, `PathClient`,
+  `PoseStampedClient`, `OdometryClient`, `PoseArrayClient`,
+  `LaserScanClient`). New top-level options:
+  `throttle_rate`, `queue_size`, `queue_length`, `compression`,
+  `latch`, `reconnect_on_close`. Lets dashboards rate-limit live
+  topic streams (e.g. cap a noisy `/scan` at 10 Hz with
+  `throttle_rate: 100`) without subclassing the client.
+
+  Backward compatible: omit any of the new options and behavior is
+  byte-for-byte identical to 1.4.0.
+
 ## [1.4.0] — 2026-04-24
 
 ### Added

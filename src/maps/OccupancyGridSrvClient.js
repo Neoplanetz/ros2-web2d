@@ -15,6 +15,8 @@
  *   * ros - the ROSLIB.Ros connection handle
  *   * service (optional) - the map topic to listen to, like '/static_map'
  *   * rootObject (optional) - the root object to add this marker to
+ *   * colorizer (optional) - forwarded to ROS2D.OccupancyGrid; accepts
+ *       the same presets/custom function as OccupancyGridClient
  */
 ROS2D.OccupancyGridSrvClient = function(options) {
   EventEmitter.call(this);
@@ -23,6 +25,7 @@ ROS2D.OccupancyGridSrvClient = function(options) {
   var ros = options.ros;
   var service = options.service || '/static_map';
   this.rootObject = options.rootObject || new createjs.Container();
+  this.colorizer = options.colorizer || null;
 
   // current grid that is displayed
   this.currentGrid = null;
@@ -42,7 +45,8 @@ ROS2D.OccupancyGridSrvClient = function(options) {
     }
 
     that.currentGrid = new ROS2D.OccupancyGrid({
-      message : response.map
+      message : response.map,
+      colorizer: that.colorizer
     });
     that.rootObject.addChild(that.currentGrid);
 

@@ -152,6 +152,27 @@ describe('OccupancyGridClient (baseline, v1 API)', () => {
     expect(topic.messageType).toBe('nav_msgs/OccupancyGrid');
   });
 
+  it('forwards throttle_rate and other ROSLIB.Topic options', () => {
+    const rootObject = { addChild: vi.fn(), getChildIndex: () => -1, removeChild: vi.fn() };
+    new globalThis.ROS2D.OccupancyGridClient({
+      ros: new fake.ROSLIB.Ros(),
+      rootObject,
+      throttle_rate: 100,
+      queue_size: 1,
+      queue_length: 5,
+      compression: 'cbor',
+      latch: true,
+      reconnect_on_close: false,
+    });
+    const topic = fake.topics[fake.topics.length - 1];
+    expect(topic.opts.throttle_rate).toBe(100);
+    expect(topic.opts.queue_size).toBe(1);
+    expect(topic.opts.queue_length).toBe(5);
+    expect(topic.opts.compression).toBe('cbor');
+    expect(topic.opts.latch).toBe(true);
+    expect(topic.opts.reconnect_on_close).toBe(false);
+  });
+
   it('emits "change" after a message arrives', () => {
     const rootObject = {
       addChild: vi.fn(),
