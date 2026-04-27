@@ -26601,7 +26601,7 @@ var createjsExports = requireCreatejs();
 
 // import * as createjs from 'createjs-module';
 
-var REVISION = '1.4.1';
+var REVISION = '1.4.2';
 
 // convert the given global Stage coordinates to ROS coordinates
 createjsExports.Stage.prototype.globalToRos = function(x, y) {
@@ -27500,11 +27500,20 @@ var OccupancyGrid = /*@__PURE__*/(function (superclass) {
     }
 
     function writeCostmapPixel(image, index, value) {
-      if (value < 0 || value === 0) {
+      if (value === 0) {
         image[index] = 0;
         image[index + 1] = 0;
         image[index + 2] = 0;
         image[index + 3] = 0;
+        return;
+      }
+      if (value < 0) {
+        // Unknown (-1) and any out-of-spec negative: faint gray so the
+        // cell is visible during debugging without dominating the view.
+        image[index] = 127;
+        image[index + 1] = 127;
+        image[index + 2] = 127;
+        image[index + 3] = 50;
         return;
       }
       if (value >= 100) {
@@ -27514,30 +27523,37 @@ var OccupancyGrid = /*@__PURE__*/(function (superclass) {
         image[index + 3] = 180;
         return;
       }
-      if (value === 99) {
-        image[index] = 255;
-        image[index + 1] = 128;
-        image[index + 2] = 255;
-        image[index + 3] = 180;
-        return;
-      }
 
-      var t = value / 98;
+      // 3-zone rainbow gradient over value 1..99 so that high-cost cells
+      // (e.g. nav2 INSCRIBED_INFLATED_OBSTACLE = 99) approach the lethal
+      // red continuously instead of jumping through unrelated hues.
+      var t = value / 99;
       var red = 0;
-      var green = 255;
-      var blue = 255;
-      if (t < 0.5) {
-        green = Math.round(255 * (t * 2));
+      var green = 0;
+      var blue = 0;
+      if (t < 1 / 3) {
+        // blue -> cyan
+        green = Math.round(255 * t * 3);
+        blue = 255;
+      } else if (t < 2 / 3) {
+        // cyan -> yellow
+        var tMid = (t - 1 / 3) * 3;
+        red = Math.round(255 * tMid);
+        green = 255;
+        blue = Math.round(255 * (1 - tMid));
       } else {
-        var tHi = (t - 0.5) * 2;
-        red = Math.round(255 * tHi);
-        blue = Math.round(255 * (1 - tHi));
+        // yellow -> red
+        var tHi = (t - 2 / 3) * 3;
+        red = 255;
+        green = Math.round(255 * (1 - tHi));
       }
 
       image[index] = red;
       image[index + 1] = green;
       image[index + 2] = blue;
-      image[index + 3] = Math.round(80 + t * 100);
+      // Cap gradient alpha at 160 so the lethal alpha (180) is visibly
+      // higher and lethal cells do not blur into the inflation band.
+      image[index + 3] = Math.round(80 + t * 80);
     }
 
     // Pick the per-pixel writer once: built-in presets write into the
@@ -27546,6 +27562,21 @@ var OccupancyGrid = /*@__PURE__*/(function (superclass) {
     // public API contract and we copy that into the buffer.
     var writePixel;
     if (typeof colorizerOption === 'function') {
+      // Validate the contract once up-front. A typo'd colorizer that
+      // returns undefined or the wrong shape would otherwise silently
+      // produce a blank canvas; failing fast here saves users hours.
+      var probe = colorizerOption(0);
+      if (!probe || probe.length !== 4 ||
+          typeof probe[0] !== 'number' || !isFinite(probe[0]) ||
+          typeof probe[1] !== 'number' || !isFinite(probe[1]) ||
+          typeof probe[2] !== 'number' || !isFinite(probe[2]) ||
+          typeof probe[3] !== 'number' || !isFinite(probe[3])) {
+        throw new Error(
+          'OccupancyGrid: custom colorizer must return ' +
+          '[r, g, b, a] of four finite numbers (0..255). Got: ' +
+          JSON.stringify(probe)
+        );
+      }
       writePixel = function(image, index, value) {
         var rgba = colorizerOption(value);
         image[index]     = rgba[0];
@@ -27657,6 +27688,38 @@ var Grid = /*@__PURE__*/(function (superclass) {
 
   return Grid;
 }(createjsExports.Shape));
+
+/**
+ * @fileOverview
+ * Internal helper for constructing a ROSLIB.Topic with the standard
+ * (ros, name, messageType) trio plus the optional Topic options every
+ * Client wants to forward to ROSLIB (throttle_rate, queue_size,
+ * queue_length, compression, latch, reconnect_on_close). Centralizing
+ * the list of forwarded keys here means adding a new one (e.g. a
+ * future qos field) is a one-file change instead of touching every
+ * client.
+ *
+ * Lives in its own file (not in Ros2D.js) so the helper attaches
+ * directly to the ROS2D global instead of being shadowed by the
+ * `var ROS2D = ROS2D || {...}` declaration at the top of Ros2D.js.
+ *
+ * undefined values are passed through so ROSLIB.Topic's own
+ * destructure defaults still apply when the caller did not opt in.
+ */
+var _makeTopic = function(ros, name, messageType, options) {
+  options = options || {};
+  return new ROSLIB__namespace.Topic({
+    ros: ros,
+    name: name,
+    messageType: messageType,
+    throttle_rate: options.throttle_rate,
+    queue_size: options.queue_size,
+    queue_length: options.queue_length,
+    compression: options.compression,
+    latch: options.latch,
+    reconnect_on_close: options.reconnect_on_close
+  });
+};
 
 var SceneNode = /*@__PURE__*/(function (superclass) {
   function SceneNode(options) {
@@ -27827,17 +27890,7 @@ var OccupancyGridClient = /*@__PURE__*/(function (EventEmitter) {
     }
 
     // subscribe to the topic
-    this.rosTopic = new ROSLIB__namespace.Topic({
-      ros : ros,
-      name : topic,
-      messageType : 'nav_msgs/OccupancyGrid',
-      throttle_rate: options.throttle_rate,
-      queue_size: options.queue_size,
-      queue_length: options.queue_length,
-      compression: options.compression,
-      latch: options.latch,
-      reconnect_on_close: options.reconnect_on_close
-    });
+    this.rosTopic = _makeTopic(ros, topic, 'nav_msgs/OccupancyGrid', options);
 
     this.rosTopic.subscribe(function(message) {
       var newGrid = new OccupancyGrid({
@@ -28064,17 +28117,7 @@ var OdometryClient = /*@__PURE__*/(function (EventEmitter) {
       this.rootObject.addChild(this.marker);
     }
 
-    this.rosTopic = new ROSLIB__namespace.Topic({
-      ros: ros,
-      name: this.topicName,
-      messageType: 'nav_msgs/Odometry',
-      throttle_rate: options.throttle_rate,
-      queue_size: options.queue_size,
-      queue_length: options.queue_length,
-      compression: options.compression,
-      latch: options.latch,
-      reconnect_on_close: options.reconnect_on_close
-    });
+    this.rosTopic = _makeTopic(ros, this.topicName, 'nav_msgs/Odometry', options);
 
     this.rosTopic.subscribe(function(message) {
       // nav_msgs/Odometry wraps the actual pose one level deeper than
@@ -28207,17 +28250,7 @@ var PathClient = /*@__PURE__*/(function (EventEmitter) {
       this.rootObject.addChild(this.pathShape);
     }
 
-    this.rosTopic = new ROSLIB__namespace.Topic({
-      ros: ros,
-      name: this.topicName,
-      messageType: 'nav_msgs/Path',
-      throttle_rate: options.throttle_rate,
-      queue_size: options.queue_size,
-      queue_length: options.queue_length,
-      compression: options.compression,
-      latch: options.latch,
-      reconnect_on_close: options.reconnect_on_close
-    });
+    this.rosTopic = _makeTopic(ros, this.topicName, 'nav_msgs/Path', options);
 
     this.rosTopic.subscribe(function(message) {
       if (that.tfClient) {
@@ -28293,17 +28326,7 @@ var PoseStampedClient = /*@__PURE__*/(function (EventEmitter) {
     }
     // tfClient path: we add the SceneNode on first message instead.
 
-    this.rosTopic = new ROSLIB__namespace.Topic({
-      ros: ros,
-      name: this.topicName,
-      messageType: 'geometry_msgs/PoseStamped',
-      throttle_rate: options.throttle_rate,
-      queue_size: options.queue_size,
-      queue_length: options.queue_length,
-      compression: options.compression,
-      latch: options.latch,
-      reconnect_on_close: options.reconnect_on_close
-    });
+    this.rosTopic = _makeTopic(ros, this.topicName, 'geometry_msgs/PoseStamped', options);
 
     this.rosTopic.subscribe(function(message) {
       var pose = message && message.pose;
@@ -28384,17 +28407,7 @@ var PoseArrayClient = /*@__PURE__*/(function (EventEmitter) {
       this.rootObject.addChild(this.container);
     }
 
-    this.rosTopic = new ROSLIB__namespace.Topic({
-      ros: ros,
-      name: this.topicName,
-      messageType: 'geometry_msgs/PoseArray',
-      throttle_rate: options.throttle_rate,
-      queue_size: options.queue_size,
-      queue_length: options.queue_length,
-      compression: options.compression,
-      latch: options.latch,
-      reconnect_on_close: options.reconnect_on_close
-    });
+    this.rosTopic = _makeTopic(ros, this.topicName, 'geometry_msgs/PoseArray', options);
 
     this.rosTopic.subscribe(function(message) {
       if (that.tfClient) {
@@ -28571,17 +28584,7 @@ var LaserScanClient = /*@__PURE__*/(function (EventEmitter) {
       this.rootObject.addChild(this.scanShape);
     }
 
-    this.rosTopic = new ROSLIB__namespace.Topic({
-      ros: ros,
-      name: this.topicName,
-      messageType: 'sensor_msgs/LaserScan',
-      throttle_rate: options.throttle_rate,
-      queue_size: options.queue_size,
-      queue_length: options.queue_length,
-      compression: options.compression,
-      latch: options.latch,
-      reconnect_on_close: options.reconnect_on_close
-    });
+    this.rosTopic = _makeTopic(ros, this.topicName, 'sensor_msgs/LaserScan', options);
 
     this.rosTopic.subscribe(function(message) {
       if (!message || !message.ranges || typeof message.angle_min !== 'number' ||
@@ -28920,17 +28923,7 @@ var MarkerArrayClient = /*@__PURE__*/(function (EventEmitter) {
     // key = ns + ':' + id  ->  { obj: child, node: SceneNode|null, timer: timeoutId|null }
     this.markers = {};
 
-    this.rosTopic = new ROSLIB__namespace.Topic({
-      ros: ros,
-      name: this.topicName,
-      messageType: 'visualization_msgs/MarkerArray',
-      throttle_rate: options.throttle_rate,
-      queue_size: options.queue_size,
-      queue_length: options.queue_length,
-      compression: options.compression,
-      latch: options.latch,
-      reconnect_on_close: options.reconnect_on_close
-    });
+    this.rosTopic = _makeTopic(ros, this.topicName, 'visualization_msgs/MarkerArray', options);
 
     this.rosTopic.subscribe(function(message) {
       that.processMessage(message);

@@ -36,11 +36,10 @@ export class PoseStampedClient extends EventEmitter<string | symbol, any> {
     arrow: any;
     tfClient: any;
     node: any;
-    rosTopic: ROSLIB.Topic<unknown>;
+    rosTopic: import("roslib").Topic<unknown>;
     /**
      * Detach from the topic and remove the managed marker from the rootObject.
      */
     unsubscribe(): void;
 }
 import EventEmitter from 'eventemitter3';
-import * as ROSLIB from 'roslib';

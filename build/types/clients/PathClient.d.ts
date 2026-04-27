@@ -28,7 +28,7 @@ export class PathClient extends EventEmitter<string | symbol, any> {
     tfClient: any;
     pathShape: PathShape;
     node: any;
-    rosTopic: ROSLIB.Topic<unknown>;
+    rosTopic: import("roslib").Topic<unknown>;
     /**
      * Detach from the topic and remove the managed PathShape (or SceneNode
      * wrapper) from the rootObject.
@@ -37,4 +37,3 @@ export class PathClient extends EventEmitter<string | symbol, any> {
 }
 import EventEmitter from 'eventemitter3';
 import { PathShape } from '../models/PathShape';
-import * as ROSLIB from 'roslib';

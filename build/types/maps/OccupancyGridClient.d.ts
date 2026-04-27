@@ -34,7 +34,7 @@ export class OccupancyGridClient extends EventEmitter<string | symbol, any> {
     colorizer: any;
     node: any;
     currentGrid: createjs.Shape;
-    rosTopic: ROSLIB.Topic<unknown>;
+    rosTopic: import("roslib").Topic<unknown>;
     /**
      * Detach from the map topic and drop any SceneNode wrap.
      */
@@ -42,4 +42,3 @@ export class OccupancyGridClient extends EventEmitter<string | symbol, any> {
 }
 import EventEmitter from 'eventemitter3';
 import * as createjs from 'createjs-module';
-import * as ROSLIB from 'roslib';

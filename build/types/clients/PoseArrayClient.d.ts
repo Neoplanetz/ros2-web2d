@@ -34,7 +34,7 @@ export class PoseArrayClient extends EventEmitter<string | symbol, any> {
     tfClient: any;
     node: any;
     container: createjs.Container;
-    rosTopic: ROSLIB.Topic<unknown>;
+    rosTopic: import("roslib").Topic<unknown>;
     /**
      * @private
      * Rebuild the arrow set from a PoseArray message.
@@ -52,4 +52,3 @@ export class PoseArrayClient extends EventEmitter<string | symbol, any> {
 }
 import EventEmitter from 'eventemitter3';
 import * as createjs from 'createjs-module';
-import * as ROSLIB from 'roslib';

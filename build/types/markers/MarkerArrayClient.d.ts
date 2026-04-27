@@ -29,7 +29,7 @@ export class MarkerArrayClient extends EventEmitter<string | symbol, any> {
     rootObject: any;
     tfClient: any;
     markers: {};
-    rosTopic: ROSLIB.Topic<unknown>;
+    rosTopic: import("roslib").Topic<unknown>;
     processMessage(message: any): void;
     _handleMarker(m: any): void;
     _removeMarker(key: any): void;
@@ -37,4 +37,3 @@ export class MarkerArrayClient extends EventEmitter<string | symbol, any> {
     unsubscribe(): void;
 }
 import EventEmitter from 'eventemitter3';
-import * as ROSLIB from 'roslib';

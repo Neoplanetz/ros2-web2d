@@ -3,6 +3,44 @@
 All notable changes to this project are documented here.
 The project follows [Semantic Versioning](https://semver.org/).
 
+## [1.4.2] — 2026-04-27
+
+### Changed
+
+- **`OccupancyGrid` `'costmap'` palette refinements** — based on the
+  v1.4.1 code review:
+  - The dedicated pink `value === 99` band has been removed. The
+    inflation gradient now extends continuously through value 99 as a
+    single blue → cyan → yellow → red rainbow, so adjacent cost cells
+    no longer jump through unrelated hues. Lethal (`value === 100`)
+    still renders as pure red but with a higher alpha than the
+    gradient peak so it visibly stands above the inflation band.
+  - Unknown cells (`value === -1`) now render as a faint gray (alpha
+    50) instead of fully transparent, preserving a debug signal when a
+    costmap publisher is misbehaving (free cells at `value === 0`
+    remain fully transparent so the costmap still overlays cleanly on
+    a base `/map`).
+  - Gradient max alpha lowered from 180 to 160 so the lethal alpha
+    (180) is visibly distinct from the high end of the inflation band.
+
+### Added
+
+- **Custom `colorizer` validation** — `ROS2D.OccupancyGrid` now probes
+  a user-supplied colorizer function with `colorizer(0)` once before
+  the render loop and throws a descriptive `Error` when the return is
+  not `[r, g, b, a]` of four finite numbers. A typo'd colorizer used
+  to silently produce a blank canvas; failure is now immediate and
+  loud.
+
+### Internal
+
+- **Topic options helper** — the per-client list of forwarded
+  `ROSLIB.Topic` options (`throttle_rate`, `queue_size`,
+  `queue_length`, `compression`, `latch`, `reconnect_on_close`) is now
+  centralized in `ROS2D._makeTopic` (see `src/util/topicHelper.js`).
+  Adding a new forwarded option in the future is a one-file change.
+  Public API and behavior are unchanged.
+
 ## [1.4.1] — 2026-04-26
 
 ### Added

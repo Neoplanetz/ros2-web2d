@@ -2,7 +2,7 @@
   "name": "ros2-web2d",
   "homepage": "https://github.com/Neoplanetz/ros2-web2d",
   "description": "Web-based 2D visualization library for ROS 2 (rosbridge + EaselJS).",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "license": "BSD-3-Clause",
   "main": "./build/ros2d.cjs.js",
   "module": "./build/ros2d.esm.js",
