@@ -3,6 +3,37 @@
 All notable changes to this project are documented here.
 The project follows [Semantic Versioning](https://semver.org/).
 
+## [1.4.3] — 2026-04-27
+
+### Removed
+
+- **`queue_size` and `latch` no longer forwarded** by any Client. Per
+  the rosbridge protocol, these belong to the `advertise` op (publisher
+  side); the `subscribe` op only carries `compression`, `throttle_rate`,
+  and `queue_length`. Every Client in this library is a subscriber, so
+  passing `queue_size` or `latch` had no effect on the wire — they
+  were stored on the local `ROSLIB.Topic` instance and ignored. The
+  v1.4.1 docs/forwarding listed them by mistake; v1.4.3 drops them
+  from the API surface (helper, JSDoc, README, tests). Existing code
+  that passed them was already getting silent no-op behavior, so
+  removing the options does not change runtime behavior.
+
+### Changed
+
+- **README forwarded-options table** trimmed to the four options that
+  actually reach rosbridge during subscribe (`throttle_rate`,
+  `queue_length`, `compression`, `reconnect_on_close`). The
+  `queue_length` description is corrected to "Bridge-side subscriber
+  queue length" (it was mistakenly described as "Client-side queue
+  depth"). The example code now uses `queue_length: 1` instead of
+  `queue_size: 1`.
+- **Forwarding tests** assert against `topic.subscribeOptions` (a new
+  capture in the fake ROSLIB.Topic that records what would actually
+  go on the wire when `subscribe()` is invoked) instead of
+  `topic.opts`. This pins the tests to protocol-level behavior so a
+  future regression that drops a key from the helper would be caught
+  immediately.
+
 ## [1.4.2] — 2026-04-27
 
 ### Changed
