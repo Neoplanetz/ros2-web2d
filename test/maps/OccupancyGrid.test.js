@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // JSDOM's canvas stubs do not implement getContext/createImageData, so
 // OccupancyGrid's rasterizer can't actually paint pixels under vitest.
@@ -58,6 +58,7 @@ function pixelAt(grid, col) {
 describe('ROS2D.OccupancyGrid colorizer', () => {
   let restore;
   beforeEach(() => { restore = installCanvasStub(); });
+  afterEach(() => { restore(); });
 
   it('default "map" preset paints free white, occupied black, unknown mid-gray', () => {
     const grid = new OccupancyGrid({ message: gridMessage([0, 100, -1, 50]) });
@@ -65,23 +66,31 @@ describe('ROS2D.OccupancyGrid colorizer', () => {
     expect(pixelAt(grid, 1)).toEqual([0, 0, 0, 255]);
     expect(pixelAt(grid, 2)).toEqual([127, 127, 127, 255]);
     expect(pixelAt(grid, 3)).toEqual([127, 127, 127, 255]); // intermediate
-    restore();
   });
 
-  it('"costmap" preset renders free/unknown transparent and lethal red', () => {
+  it('"costmap" preset renders free transparent, unknown faint gray, lethal red', () => {
     const grid = new OccupancyGrid({
       message: gridMessage([0, -1, 100]),
       colorizer: 'costmap',
     });
-    expect(pixelAt(grid, 0)[3]).toBe(0); // free transparent
-    expect(pixelAt(grid, 1)[3]).toBe(0); // unknown transparent
+    // free (0) is fully transparent so the costmap overlay reveals the base map underneath
+    expect(pixelAt(grid, 0)[3]).toBe(0);
+    // unknown (-1) renders as a faint gray so debug signal is preserved (Issue 2 fix)
+    const unknown = pixelAt(grid, 1);
+    expect(unknown[0]).toBe(127);
+    expect(unknown[1]).toBe(127);
+    expect(unknown[2]).toBe(127);
+    expect(unknown[3]).toBeGreaterThan(0);
+    expect(unknown[3]).toBeLessThan(80); // faint, not dominant
+    // lethal (100) is bright red with high alpha
     const lethal = pixelAt(grid, 2);
-    expect(lethal[0]).toBe(255); // red channel
-    expect(lethal[3]).toBeGreaterThan(0); // visible
-    restore();
+    expect(lethal[0]).toBe(255);
+    expect(lethal[1]).toBe(0);
+    expect(lethal[2]).toBe(0);
+    expect(lethal[3]).toBe(180);
   });
 
-  it('"costmap" inflation values produce visible gradient pixels with growing alpha', () => {
+  it('"costmap" inflation gradient is continuous through value=99 with no hue jump', () => {
     const grid = new OccupancyGrid({
       message: gridMessage([20, 60, 99]),
       colorizer: 'costmap',
@@ -89,14 +98,28 @@ describe('ROS2D.OccupancyGrid colorizer', () => {
     const low = pixelAt(grid, 0);
     const mid = pixelAt(grid, 1);
     const inscribed = pixelAt(grid, 2);
-    // Each band should render a visibly non-zero pixel
+    // Alpha grows monotonically with cost (Issue 6: gradient capped < 180 lethal)
     expect(low[3]).toBeGreaterThan(0);
-    expect(mid[3]).toBeGreaterThan(low[3]); // alpha grows with cost
-    // Inscribed gets the dedicated pink treatment (255, 128, 255)
+    expect(mid[3]).toBeGreaterThan(low[3]);
+    expect(inscribed[3]).toBeGreaterThan(mid[3]);
+    expect(inscribed[3]).toBeLessThanOrEqual(160);
+    // value=99 reaches the red end of the gradient (no pink carve-out, Issue 1 fix)
     expect(inscribed[0]).toBe(255);
-    expect(inscribed[1]).toBe(128);
-    expect(inscribed[2]).toBe(255);
-    restore();
+    expect(inscribed[1]).toBe(0);
+    expect(inscribed[2]).toBe(0);
+  });
+
+  it('"costmap" lethal cells stand above the inflation band via alpha', () => {
+    const grid = new OccupancyGrid({
+      message: gridMessage([99, 100]),
+      colorizer: 'costmap',
+    });
+    const inscribed = pixelAt(grid, 0);
+    const lethal = pixelAt(grid, 1);
+    // Same hue (red) but lethal has noticeably higher alpha
+    expect(inscribed[0]).toBe(255);
+    expect(lethal[0]).toBe(255);
+    expect(lethal[3]).toBeGreaterThan(inscribed[3]);
   });
 
   it('accepts a custom colorizer function', () => {
@@ -107,7 +130,34 @@ describe('ROS2D.OccupancyGrid colorizer', () => {
     expect(pixelAt(grid, 0)).toEqual([0, 0, 0, 255]);
     expect(pixelAt(grid, 1)).toEqual([100, 0, 0, 255]);
     expect(pixelAt(grid, 2)).toEqual([200, 0, 0, 255]);
-    restore();
+  });
+
+  it('throws when a custom colorizer returns undefined', () => {
+    expect(() => new OccupancyGrid({
+      message: gridMessage([0, 100]),
+      colorizer: () => undefined,
+    })).toThrow(/custom colorizer must return/);
+  });
+
+  it('throws when a custom colorizer returns the wrong tuple length', () => {
+    expect(() => new OccupancyGrid({
+      message: gridMessage([0, 100]),
+      colorizer: () => [255, 0, 0],
+    })).toThrow(/custom colorizer must return/);
+  });
+
+  it('throws when a custom colorizer returns non-finite numbers', () => {
+    expect(() => new OccupancyGrid({
+      message: gridMessage([0, 100]),
+      colorizer: () => [255, NaN, 0, 255],
+    })).toThrow(/custom colorizer must return/);
+  });
+
+  it('throws when a custom colorizer returns non-numeric values', () => {
+    expect(() => new OccupancyGrid({
+      message: gridMessage([0, 100]),
+      colorizer: () => ['ff', 0, 0, 255],
+    })).toThrow(/custom colorizer must return/);
   });
 
   it('falls back to map preset on unknown colorizer string', () => {
@@ -117,6 +167,5 @@ describe('ROS2D.OccupancyGrid colorizer', () => {
     });
     expect(pixelAt(grid, 0)).toEqual([255, 255, 255, 255]);
     expect(pixelAt(grid, 1)).toEqual([0, 0, 0, 255]);
-    restore();
   });
 });
