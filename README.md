@@ -185,6 +185,40 @@ new MarkerArrayClient({
 });
 ```
 
+## Interactive pose picking
+
+`ROS2D.PoseInteractionView` is the web equivalent of rviz2's
+"2D Goal Pose" tool: the user clicks on the map, drags to indicate a
+heading, and on release receives `{ x, y, yaw }` in the ROS world
+frame. The view owns its own `NavigationArrow` preview and handles
+the canvas Y-flip / rotation sign conventions internally.
+
+```js
+var goalPicker = new ROS2D.PoseInteractionView({
+  viewer: viewer,                 // ROS2D.Viewer instance
+  arrowSize: 1.5,                 // ROS meters (default 1.5)
+  arrowFillColor: '#ef4444',      // default red
+  dragThresholdPx: 10,            // taps under this commit yaw=undefined
+  onCommit: function(commit) {
+    // commit: { x, y, yaw }
+    // yaw is in radians (CCW from +X) or undefined for taps
+    publishGoalPose(commit);
+  },
+});
+
+// Toggle on/off without losing the preview shape:
+goalPicker.disable();
+goalPicker.enable();
+
+// Permanent teardown (removes preview from the scene):
+goalPicker.destroy();
+```
+
+Pair the view with `setInteractionEnabled(false)` (or your equivalent)
+on Pan/Rotate so the goal-placement drag does not also pan/rotate the
+map. The view ignores shift-modified clicks (reserved for pan) and any
+non-left mouse button.
+
 ## Example studio
 
 `examples/` ships a Vite + React app that exercises every client

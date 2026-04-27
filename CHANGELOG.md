@@ -3,6 +3,26 @@
 All notable changes to this project are documented here.
 The project follows [Semantic Versioning](https://semver.org/).
 
+## [1.5.0] — 2026-04-27
+
+### Added
+
+- **`ROS2D.PoseInteractionView`** — interactive 2D pose picker (the
+  web equivalent of rviz2's "2D Goal Pose" tool). Click on the map,
+  drag to indicate a heading, and `onCommit({ x, y, yaw })` fires on
+  release with the result in the ROS world frame (yaw in radians,
+  CCW from +X; `undefined` when the drag was below
+  `dragThresholdPx`). The view owns its own `NavigationArrow`
+  preview and handles the canvas Y-flip and rotation-sign
+  conventions internally. Lifecycle methods: `enable()`,
+  `disable()`, `destroy()`. Construct with `enabled: false` to defer
+  listener attachment.
+
+  Extracted and generalized from a downstream consumer's "goal mode"
+  implementation so dashboards no longer have to re-derive the
+  drag-threshold math, the world-frame yaw, or the y-negation
+  conventions every time. New file: `src/visualization/PoseInteractionView.js`.
+
 ## [1.4.3] — 2026-04-27
 
 ### Removed
