@@ -119,31 +119,37 @@ ROS2D.PoseInteractionView.prototype.enable = function() {
     down: function(event) {
       // Left button only; shift modifier is reserved for pan.
       if (event && event.nativeEvent) {
-        if (event.nativeEvent.button !== 0 || event.nativeEvent.shiftKey) {
+        var button = event.nativeEvent.button;
+        if ((typeof button === 'number' && button !== 0) || event.nativeEvent.shiftKey) {
           return;
         }
       }
       var world = scene.globalToRos(event.stageX, event.stageY);
       that._dragStart = {
         px: { x: event.stageX, y: event.stageY },
-        world: { x: world.x, y: world.y }
+        world: { x: world.x, y: world.y },
+        pointerID: (event && event.pointerID !== undefined) ? event.pointerID : null
       };
     },
     move: function(event) {
       if (!that._dragStart) {
         return;
       }
+      var pointerID = (event && event.pointerID !== undefined) ? event.pointerID : null;
+      if (that._dragStart.pointerID !== null && pointerID !== null && pointerID !== that._dragStart.pointerID) {
+        return;
+      }
       var pdx = event.stageX - that._dragStart.px.x;
       var pdy = event.stageY - that._dragStart.px.y;
       var pixDist = Math.sqrt(pdx * pdx + pdy * pdy);
-      var arrow = that._ensureArrow();
       if (pixDist < that.dragThresholdPx) {
-        if (arrow.visible) {
-          arrow.visible = false;
+        if (that._arrow && that._arrow.visible) {
+          that._arrow.visible = false;
           scene.update();
         }
         return;
       }
+      var arrow = that._ensureArrow();
       var curWorld = scene.globalToRos(event.stageX, event.stageY);
       var worldYaw = Math.atan2(
         curWorld.y - that._dragStart.world.y,
@@ -160,6 +166,10 @@ ROS2D.PoseInteractionView.prototype.enable = function() {
     },
     up: function(event) {
       if (!that._dragStart) {
+        return;
+      }
+      var pointerID = (event && event.pointerID !== undefined) ? event.pointerID : null;
+      if (that._dragStart.pointerID !== null && pointerID !== null && pointerID !== that._dragStart.pointerID) {
         return;
       }
       var pdx = event.stageX - that._dragStart.px.x;

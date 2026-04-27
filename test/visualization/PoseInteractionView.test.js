@@ -40,7 +40,17 @@ function evt(stageX, stageY, opts = {}) {
   return {
     stageX,
     stageY,
+    pointerID: opts.pointerID ?? -1,
     nativeEvent: { button: opts.button ?? 0, shiftKey: !!opts.shiftKey },
+  };
+}
+
+function touchEvt(stageX, stageY, opts = {}) {
+  return {
+    stageX,
+    stageY,
+    pointerID: opts.pointerID ?? 7,
+    nativeEvent: { shiftKey: !!opts.shiftKey },
   };
 }
 
@@ -109,6 +119,35 @@ describe('ROS2D.PoseInteractionView', () => {
     dispatch(scene, 'stagemousemove', evt(3, 4)); // dist=5, < 10
     dispatch(scene, 'stagemouseup', evt(3, 4));
     expect(onCommit).toHaveBeenCalledWith({ x: 0, y: 0, yaw: undefined });
+  });
+
+  it('does not create the preview arrow for sub-threshold drag jitter', () => {
+    new PoseInteractionView({ viewer, dragThresholdPx: 10 });
+    dispatch(scene, 'stagemousedown', evt(0, 0));
+    dispatch(scene, 'stagemousemove', evt(3, 4)); // dist=5, < 10
+    expect(scene.children).toHaveLength(0);
+  });
+
+  it('accepts touch events that do not expose nativeEvent.button', () => {
+    const onCommit = vi.fn();
+    new PoseInteractionView({ viewer, onCommit, dragThresholdPx: 10 });
+    dispatch(scene, 'stagemousedown', touchEvt(0, 0, { pointerID: 11 }));
+    dispatch(scene, 'stagemousemove', touchEvt(20, 0, { pointerID: 11 }));
+    dispatch(scene, 'stagemouseup', touchEvt(20, 0, { pointerID: 11 }));
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect(onCommit.mock.calls[0][0].yaw).toBeCloseTo(0, 5);
+  });
+
+  it('ignores move and release events from a different pointer while dragging', () => {
+    const onCommit = vi.fn();
+    new PoseInteractionView({ viewer, onCommit, dragThresholdPx: 10 });
+    dispatch(scene, 'stagemousedown', touchEvt(0, 0, { pointerID: 11 }));
+    dispatch(scene, 'stagemousemove', touchEvt(20, 0, { pointerID: 12 }));
+    dispatch(scene, 'stagemouseup', touchEvt(20, 0, { pointerID: 12 }));
+    expect(scene.children).toHaveLength(0);
+    expect(onCommit).not.toHaveBeenCalled();
+    dispatch(scene, 'stagemouseup', touchEvt(20, 0, { pointerID: 11 }));
+    expect(onCommit).toHaveBeenCalledTimes(1);
   });
 
   it('a drag above dragThresholdPx commits with computed yaw (CCW radians)', () => {
