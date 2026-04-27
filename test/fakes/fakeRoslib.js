@@ -22,7 +22,19 @@ export function createFakeRoslib() {
       this._subs = [];
       topics.push(this);
     }
-    subscribe(cb) { this._subs.push(cb); }
+    subscribe(cb) {
+      this._subs.push(cb);
+      // Capture the subset of Topic options that the rosbridge
+      // subscribe op actually carries. Tests assert against this
+      // (instead of the raw constructor opts) so an option that is
+      // dropped by the helper or by ROSLIB.Topic before going on the
+      // wire shows up as missing here.
+      this.subscribeOptions = {
+        compression: this.opts.compression ?? 'none',
+        throttle_rate: this.opts.throttle_rate ?? 0,
+        queue_length: this.opts.queue_length ?? 0,
+      };
+    }
     unsubscribe() { this._subs = []; }
     publish(msg) {
       const list = publishedByTopic.get(this.name) ?? [];

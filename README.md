@@ -163,22 +163,24 @@ returns a 0..255 RGBA tuple.
 
 Shared options on ROS-driven clients: `ros`, `topic`, `rootObject`,
 `tfClient`. Every client also forwards the standard `ROSLIB.Topic`
-subscription options when supplied:
+subscribe options when supplied. Only options that the rosbridge
+`subscribe` op actually carries (plus the connection-level
+`reconnect_on_close`) are forwarded; advertise-only options like
+`queue_size` and `latch` are intentionally omitted because every
+client in this library is a subscriber.
 
 | Option | Type | Notes |
 |--------|------|-------|
 | `throttle_rate` | number (ms) | Minimum interval between delivered messages |
-| `queue_size` | number | Server-side queue depth |
-| `queue_length` | number | Client-side queue depth |
-| `compression` | `'none'` / `'cbor'` / `'png'` | rosbridge compression scheme |
-| `latch` | boolean | Latch the last message for late subscribers |
+| `queue_length` | number | Bridge-side subscriber queue length |
+| `compression` | `'none'` / `'cbor'` / `'cbor-raw'` / `'png'` | rosbridge compression scheme |
 | `reconnect_on_close` | boolean | Auto-resubscribe after disconnect |
 
 ```js
 new MarkerArrayClient({
   ros, topic: '/markers', rootObject: viewer.scene,
   throttle_rate: 100,    // 10 Hz cap
-  queue_size: 1,
+  queue_length: 1,
   compression: 'cbor',
 });
 ```

@@ -64,20 +64,18 @@ describe('ROS2D.PoseStampedClient', () => {
     expect(c.arrow.visible).toBe(false);
   });
 
-  it('forwards throttle_rate and other ROSLIB.Topic options', () => {
+  it('forwards ROSLIB.Topic subscribe options', () => {
     new PoseStampedClient({
       ros: new fake.ROSLIB.Ros(), rootObject: new FakeContainer(),
-      throttle_rate: 100, queue_size: 1, queue_length: 5,
-      compression: 'cbor', latch: true, reconnect_on_close: false,
+      throttle_rate: 100, queue_length: 5,
+      compression: 'cbor', reconnect_on_close: false,
     });
     const topic = fake.topics[fake.topics.length - 1];
     // messageType must not be clobberable by a user-supplied option
     expect(topic.messageType).toBe('geometry_msgs/PoseStamped');
-    expect(topic.opts.throttle_rate).toBe(100);
-    expect(topic.opts.queue_size).toBe(1);
-    expect(topic.opts.queue_length).toBe(5);
-    expect(topic.opts.compression).toBe('cbor');
-    expect(topic.opts.latch).toBe(true);
+    expect(topic.subscribeOptions.throttle_rate).toBe(100);
+    expect(topic.subscribeOptions.queue_length).toBe(5);
+    expect(topic.subscribeOptions.compression).toBe('cbor');
     expect(topic.opts.reconnect_on_close).toBe(false);
   });
 
