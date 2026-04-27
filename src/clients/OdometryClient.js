@@ -51,17 +51,7 @@ ROS2D.OdometryClient = function(options) {
     this.rootObject.addChild(this.marker);
   }
 
-  this.rosTopic = new ROSLIB.Topic({
-    ros: ros,
-    name: this.topicName,
-    messageType: 'nav_msgs/Odometry',
-    throttle_rate: options.throttle_rate,
-    queue_size: options.queue_size,
-    queue_length: options.queue_length,
-    compression: options.compression,
-    latch: options.latch,
-    reconnect_on_close: options.reconnect_on_close
-  });
+  this.rosTopic = ROS2D._makeTopic(ros, this.topicName, 'nav_msgs/Odometry', options);
 
   this.rosTopic.subscribe(function(message) {
     // nav_msgs/Odometry wraps the actual pose one level deeper than

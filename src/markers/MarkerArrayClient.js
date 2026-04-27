@@ -35,17 +35,7 @@ ROS2D.MarkerArrayClient = function(options) {
   // key = ns + ':' + id  ->  { obj: child, node: SceneNode|null, timer: timeoutId|null }
   this.markers = {};
 
-  this.rosTopic = new ROSLIB.Topic({
-    ros: ros,
-    name: this.topicName,
-    messageType: 'visualization_msgs/MarkerArray',
-    throttle_rate: options.throttle_rate,
-    queue_size: options.queue_size,
-    queue_length: options.queue_length,
-    compression: options.compression,
-    latch: options.latch,
-    reconnect_on_close: options.reconnect_on_close
-  });
+  this.rosTopic = ROS2D._makeTopic(ros, this.topicName, 'visualization_msgs/MarkerArray', options);
 
   this.rosTopic.subscribe(function(message) {
     that.processMessage(message);

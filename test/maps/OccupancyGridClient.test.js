@@ -132,6 +132,7 @@ globalThis.ROSLIB.Pose.prototype.applyTransform = function(tf) {
   };
 };
 
+await import('../../src/util/topicHelper.js');
 await import('../../src/visualization/SceneNode.js');
 await import('../../src/maps/OccupancyGridClient.js');
 
@@ -165,6 +166,8 @@ describe('OccupancyGridClient (baseline, v1 API)', () => {
       reconnect_on_close: false,
     });
     const topic = fake.topics[fake.topics.length - 1];
+    // messageType must not be clobberable by a user-supplied option
+    expect(topic.messageType).toBe('nav_msgs/OccupancyGrid');
     expect(topic.opts.throttle_rate).toBe(100);
     expect(topic.opts.queue_size).toBe(1);
     expect(topic.opts.queue_length).toBe(5);

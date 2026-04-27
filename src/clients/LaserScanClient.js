@@ -40,17 +40,7 @@ ROS2D.LaserScanClient = function(options) {
     this.rootObject.addChild(this.scanShape);
   }
 
-  this.rosTopic = new ROSLIB.Topic({
-    ros: ros,
-    name: this.topicName,
-    messageType: 'sensor_msgs/LaserScan',
-    throttle_rate: options.throttle_rate,
-    queue_size: options.queue_size,
-    queue_length: options.queue_length,
-    compression: options.compression,
-    latch: options.latch,
-    reconnect_on_close: options.reconnect_on_close
-  });
+  this.rosTopic = ROS2D._makeTopic(ros, this.topicName, 'sensor_msgs/LaserScan', options);
 
   this.rosTopic.subscribe(function(message) {
     if (!message || !message.ranges || typeof message.angle_min !== 'number' ||

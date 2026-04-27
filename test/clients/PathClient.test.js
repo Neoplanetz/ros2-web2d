@@ -55,6 +55,7 @@ globalThis.ROSLIB.Pose.prototype.applyTransform = function(tf) {
 };
 globalThis.ROS2D.quaternionToGlobalTheta = function() { return 0; };
 
+await import('../../src/util/topicHelper.js');
 await import('../../src/visualization/SceneNode.js');
 await import('../../src/clients/PathClient.js');
 const PathClient = globalThis.ROS2D.PathClient;
@@ -69,6 +70,8 @@ describe('ROS2D.PathClient', () => {
       compression: 'cbor', latch: true, reconnect_on_close: false,
     });
     const topic = fake.topics[fake.topics.length - 1];
+    // messageType must not be clobberable by a user-supplied option
+    expect(topic.messageType).toBe('nav_msgs/Path');
     expect(topic.opts.throttle_rate).toBe(100);
     expect(topic.opts.queue_size).toBe(1);
     expect(topic.opts.queue_length).toBe(5);

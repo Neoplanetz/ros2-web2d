@@ -41,17 +41,7 @@ ROS2D.PathClient = function(options) {
     this.rootObject.addChild(this.pathShape);
   }
 
-  this.rosTopic = new ROSLIB.Topic({
-    ros: ros,
-    name: this.topicName,
-    messageType: 'nav_msgs/Path',
-    throttle_rate: options.throttle_rate,
-    queue_size: options.queue_size,
-    queue_length: options.queue_length,
-    compression: options.compression,
-    latch: options.latch,
-    reconnect_on_close: options.reconnect_on_close
-  });
+  this.rosTopic = ROS2D._makeTopic(ros, this.topicName, 'nav_msgs/Path', options);
 
   this.rosTopic.subscribe(function(message) {
     if (that.tfClient) {
