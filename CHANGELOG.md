@@ -3,6 +3,31 @@
 All notable changes to this project are documented here.
 The project follows [Semantic Versioning](https://semver.org/).
 
+## [1.5.1] — 2026-04-27
+
+### Fixed
+
+- **`PoseInteractionView` now works with touch events.** The
+  left-button-only check used `event.nativeEvent.button !== 0`, which
+  silently rejected touch events because their `nativeEvent` does not
+  expose a `button` field at all. The check now only rejects when
+  `button` is explicitly a non-zero number, so mouse-down with
+  button=0 and any touchstart both pass through.
+- **Multi-touch isolation** — the view now records the pointer ID at
+  drag start and ignores `stagemousemove` / `stagemouseup` events
+  whose pointer ID does not match. A second finger touching the
+  canvas mid-drag no longer hijacks the gesture. (Mouse pointers
+  share a constant pointer ID, so the existing single-mouse path is
+  unchanged.)
+
+### Changed
+
+- **`PoseInteractionView`** preview arrow is now created lazily only
+  after the drag distance crosses `dragThresholdPx`, instead of on
+  the first `stagemousemove` of any drag. Sub-threshold jitter on a
+  pure tap no longer allocates a `NavigationArrow` or mutates the
+  scene.
+
 ## [1.5.0] — 2026-04-27
 
 ### Added
