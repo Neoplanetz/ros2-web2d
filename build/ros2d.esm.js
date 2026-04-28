@@ -26577,7 +26577,7 @@ var createjsExports = requireCreatejs();
 
 // import * as createjs from 'createjs-module';
 
-var REVISION = '1.6.0';
+var REVISION = '1.6.2';
 
 // convert the given global Stage coordinates to ROS coordinates
 createjsExports.Stage.prototype.globalToRos = function(x, y) {
@@ -28798,7 +28798,13 @@ var ArrowShape = /*@__PURE__*/(function (superclass) {
   	var that = this;
   	options = options || {};
   	var size = options.size || 10;
-  	var strokeSize = options.strokeSize || 3;
+  	// Explicit undefined check so callers can opt out of stroke entirely
+  	// with strokeSize: 0. The earlier `|| 3` fallback overrode the
+  	// caller's 0, which (under the parent scene's px-per-meter scale)
+  	// rendered as a giant outline that swallowed the filled head — the
+  	// classic symptom from Marker case 0 ARROW (which always passes
+  	// strokeSize: 0 to get a fill-only arrow).
+  	var strokeSize = (options.strokeSize !== undefined) ? options.strokeSize : 3;
   	var strokeColor = options.strokeColor || createjsExports.Graphics.getRGB(0, 0, 0);
   	var fillColor = options.fillColor || createjsExports.Graphics.getRGB(255, 0, 0);
   	var pulse = options.pulse;
@@ -28809,10 +28815,16 @@ var ArrowShape = /*@__PURE__*/(function (superclass) {
   	var headLen = size / 3.0;
   	var headWidth = headLen * 2.0 / 3.0;
 
-  	graphics.setStrokeStyle(strokeSize);
-  	graphics.beginStroke(strokeColor);
-  	graphics.moveTo(0, 0);
-  	graphics.lineTo(size-headLen, 0);
+  	// When strokeSize is 0, skip the stroke commands entirely so the
+  	// shaft line disappears (no zero-width hairline) and only the filled
+  	// head triangle remains — matches RViz "no stroke" rendering and
+  	// matches the NavigationArrow pattern.
+  	if (strokeSize > 0) {
+  		graphics.setStrokeStyle(strokeSize);
+  		graphics.beginStroke(strokeColor);
+  		graphics.moveTo(0, 0);
+  		graphics.lineTo(size-headLen, 0);
+  	}
 
   	graphics.beginFill(fillColor);
   	graphics.moveTo(size, 0);
@@ -28820,7 +28832,9 @@ var ArrowShape = /*@__PURE__*/(function (superclass) {
   	graphics.lineTo(size-headLen, -headWidth / 2.0);
   	graphics.closePath();
   	graphics.endFill();
-  	graphics.endStroke();
+  	if (strokeSize > 0) {
+  		graphics.endStroke();
+  	}
 
   	// create the shape (parent ctor already invoked at top)
   	this.graphics = graphics;
@@ -28990,10 +29004,24 @@ var Marker = /*@__PURE__*/(function (superclass) {
         break;
 
       case 9: // TEXT_VIEW_FACING
-        var fontSize = scale.z || 1;
+        // scale.z is the text height in meters (RViz convention). createjs
+        // Text is raster, so rendering at `${scale.z}px Arial` would
+        // produce a sub-pixel-tall texture that the parent scene then
+        // upscales into a blurry / invisible smear once the px-per-meter
+        // scale is applied. Instead, rasterize at a fixed
+        // TEXT_RASTER_PX font and scale by scale.z / TEXT_RASTER_PX so
+        // the rendered text height ends up at scale.z meters in world
+        // units, matching RViz vector text. textAlign / textBaseline
+        // center the text on the marker pose, again matching RViz.
+        var TEXT_RASTER_PX = 100;
+        var fontSizeMeters = (typeof scale.z === 'number' && scale.z > 0) ? scale.z : 1;
         var text = new createjsExports.Text(
-          message.text || '', fontSize + 'px Arial', fillColor
+          message.text || '', TEXT_RASTER_PX + 'px Arial', fillColor
         );
+        text.textAlign = 'center';
+        text.textBaseline = 'middle';
+        text.scaleX = fontSizeMeters / TEXT_RASTER_PX;
+        text.scaleY = fontSizeMeters / TEXT_RASTER_PX;
         this.addChild(text);
         break;
 

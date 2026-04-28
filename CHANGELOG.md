@@ -3,6 +3,40 @@
 All notable changes to this project are documented here.
 The project follows [Semantic Versioning](https://semver.org/).
 
+## [1.6.2] — 2026-04-28
+
+### Fixed
+
+- **`ArrowShape` respects `strokeSize: 0`** — the `var strokeSize =
+  options.strokeSize || 3;` fallback treated an explicit 0 as falsy
+  and substituted 3, so callers that wanted a fill-only arrow got a
+  3-unit-wide outline. `Marker` case 0 ARROW always passes
+  `strokeSize: 0` to draw only the filled triangular head; under a
+  typical px-per-meter scene scale (~70 px/m) the unwanted 3-unit
+  stroke rendered as a 210 px outline that completely swallowed the
+  ~47 px filled head, so a single nav2 task arrow appeared as a
+  ~200 px square covering the robot icon. The fallback now uses an
+  explicit `!== undefined` check, and the stroke commands are
+  guarded by `if (strokeSize > 0)` so a zero or garbage strokeSize
+  produces a clean fill-only arrow with no shaft line and no
+  zero-width hairline (matches the existing `NavigationArrow`
+  pattern).
+- **`Marker` `TEXT_VIEW_FACING` (type 9) renders at the correct
+  size** — case 9 sized the text with `` `${scale.z}px Arial` ``,
+  treating `scale.z` (meters in the RViz convention) as a pixel font
+  size. Sub-meter labels like the omnifleet 0.4 m "Task: T001" tag
+  rasterized as a sub-pixel-tall texture that the parent scene then
+  upscaled into a blurry / invisible smear. The text is now
+  rasterized at a fixed 100 px font and scaled by
+  `scale.z / 100` so the rendered height ends up at `scale.z`
+  meters in world units, matching RViz vector text.
+  `textAlign = 'center'` / `textBaseline = 'middle'` center the text
+  on the marker pose, again matching RViz.
+
+Both fixes are reported by Neoplanetz/omnifleet via multi-robot
+rosbag verification. No external API change — purely rendering
+correctness.
+
 ## [1.6.1] — 2026-04-28
 
 ### Fixed
