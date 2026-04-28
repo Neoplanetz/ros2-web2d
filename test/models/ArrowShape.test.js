@@ -27,8 +27,18 @@ FakeGraphics.prototype.beginFill = function(color) {
   return this;
 };
 FakeGraphics.prototype.endFill = function() { this.commands.push('endFill'); return this; };
-FakeGraphics.prototype.moveTo = function() { this.commands.push('moveTo'); return this; };
-FakeGraphics.prototype.lineTo = function() { this.commands.push('lineTo'); return this; };
+FakeGraphics.prototype.moveTo = function(x, y) {
+  this.commands.push('moveTo');
+  this.moveTos = this.moveTos || [];
+  this.moveTos.push({ x: x, y: y });
+  return this;
+};
+FakeGraphics.prototype.lineTo = function(x, y) {
+  this.commands.push('lineTo');
+  this.lineTos = this.lineTos || [];
+  this.lineTos.push({ x: x, y: y });
+  return this;
+};
 FakeGraphics.prototype.closePath = function() { this.commands.push('closePath'); return this; };
 
 globalThis.createjs = {
@@ -72,6 +82,58 @@ describe('ROS2D.ArrowShape', () => {
   it('still renders the filled head when strokeSize is omitted', () => {
     const a = new ArrowShape({ fillColor: '#00ff00' });
     expect(a.graphics.fills).toEqual(['#00ff00']);
+  });
+
+  describe('extended mode (explicit dimensions)', () => {
+    it('triggers when shaftLength is provided', () => {
+      const a = new ArrowShape({ shaftLength: 3, shaftWidth: 0.5, headLength: 0.5, headWidth: 1, strokeSize: 0 });
+      // Extended mode emits a 7-vertex polygon (1 moveTo + 6 lineTo + closePath)
+      const lineTos = a.graphics.commands.filter((c) => c === 'lineTo').length;
+      expect(lineTos).toBe(6);
+      expect(a.graphics.commands).toContain('closePath');
+      expect(a.graphics.commands).toContain('beginFill');
+    });
+
+    it('lays out the 7 vertices counter-clockwise around the arrow outline', () => {
+      // shaftLength=3, shaftWidth=0.5, headLength=0.5, headWidth=1
+      // Tail width edge → shaft top → shaft-head joint top → tip → joint bot → shaft bot → tail bot.
+      const a = new ArrowShape({ shaftLength: 3, shaftWidth: 0.5, headLength: 0.5, headWidth: 1, strokeSize: 0 });
+      expect(a.graphics.moveTos).toEqual([{ x: 0, y: -0.25 }]);
+      expect(a.graphics.lineTos).toEqual([
+        { x: 3, y: -0.25 },                  // shaft top-right
+        { x: 3, y: -0.5 },                   // head base top (headWidth/2 = 0.5)
+        { x: 3.5, y: 0 },                    // tip
+        { x: 3, y: 0.5 },                    // head base bottom
+        { x: 3, y: 0.25 },                   // shaft bottom-right
+        { x: 0, y: 0.25 },                   // tail bottom
+      ]);
+    });
+
+    it('headWidth defaults to shaftWidth * 2 when omitted', () => {
+      const a = new ArrowShape({ shaftLength: 2, shaftWidth: 0.3, headLength: 0.5, strokeSize: 0 });
+      // tip at x=2.5, head base at x=2 with y=±headWidth/2 = ±0.3
+      const headBaseTop = a.graphics.lineTos[1];
+      expect(headBaseTop).toEqual({ x: 2, y: -0.3 });
+    });
+
+    it('triggers extended mode for any explicit dim (shaftWidth alone)', () => {
+      const a = new ArrowShape({ shaftWidth: 0.2, strokeSize: 0 });
+      expect(a.graphics.commands.filter((c) => c === 'lineTo').length).toBe(6);
+    });
+
+    it('extended mode also honors strokeSize: 0 (fill-only)', () => {
+      const a = new ArrowShape({ shaftLength: 3, shaftWidth: 0.5, headLength: 0.5, headWidth: 1, strokeSize: 0 });
+      expect(a.graphics.commands).not.toContain('setStrokeStyle');
+      expect(a.graphics.commands).not.toContain('beginStroke');
+    });
+
+    it('extended mode renders a stroked outline when strokeSize > 0', () => {
+      const a = new ArrowShape({ shaftLength: 3, shaftWidth: 0.5, headLength: 0.5, headWidth: 1, strokeSize: 0.05 });
+      expect(a.graphics.commands).toContain('setStrokeStyle');
+      expect(a.graphics.commands).toContain('beginStroke');
+      expect(a.graphics.commands).toContain('endStroke');
+      expect(a.graphics.strokeWidths).toEqual([0.05]);
+    });
   });
 
   it('garbage strokeSize (NaN, negative) silently skips stroke instead of crashing', () => {

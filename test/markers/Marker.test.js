@@ -120,6 +120,42 @@ describe('ROS2D.Marker', () => {
     expect(m.children[0]).toBeInstanceOf(globalThis.ROS2D.ArrowShape);
   });
 
+  it('ARROW (type 0) maps scale.x/y/z to RViz shaft length / diameter / head length', () => {
+    // omnifleet "task_marker" arrow uses scale (3, 0.5, 0.5).
+    const m = new Marker({
+      message: { type: 0, pose: idPose, scale: { x: 3, y: 0.5, z: 0.5 }, color: whiteOpaque },
+    });
+    const opts = m.children[0].opts;
+    expect(opts.shaftLength).toBe(3);
+    expect(opts.shaftWidth).toBe(0.5);
+    expect(opts.headLength).toBe(0.5);
+    // Head diameter is conventionally 2x shaft diameter (RViz default)
+    expect(opts.headWidth).toBe(1);
+    // Marker case 0 must always pass strokeSize: 0 (fill-only)
+    expect(opts.strokeSize).toBe(0);
+  });
+
+  it('ARROW (type 0) falls back to defaults when scale fields are zero/missing', () => {
+    // omnifleet "back_to_*" placeholder arrow uses scale (0, 0, 0).
+    const m = new Marker({
+      message: { type: 0, pose: idPose, scale: { x: 0, y: 0, z: 0 }, color: whiteOpaque },
+    });
+    const opts = m.children[0].opts;
+    expect(opts.shaftLength).toBe(1);                        // fallback
+    expect(opts.shaftWidth).toBe(0.1);                       // fallback
+    expect(opts.headLength).toBeCloseTo(0.23 * 1, 5);        // 0.23 * shaftLength
+    expect(opts.headWidth).toBeCloseTo(0.1 * 2, 5);          // 2 * shaftWidth
+  });
+
+  it('ARROW (type 0) computes head length from shaft length when scale.z is 0', () => {
+    const m = new Marker({
+      message: { type: 0, pose: idPose, scale: { x: 4, y: 0.2, z: 0 }, color: whiteOpaque },
+    });
+    const opts = m.children[0].opts;
+    expect(opts.shaftLength).toBe(4);
+    expect(opts.headLength).toBeCloseTo(0.23 * 4, 5);
+  });
+
   it('LINE_STRIP (type 4) emits one moveTo and N-1 lineTo commands', () => {
     const m = new Marker({
       message: {

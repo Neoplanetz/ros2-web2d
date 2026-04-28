@@ -44,8 +44,23 @@ ROS2D.Marker = function(options) {
 
   switch (message.type) {
     case 0: // ARROW
+      // RViz visualization_msgs/Marker arrow convention:
+      //   scale.x = shaft length (m)
+      //   scale.y = shaft diameter (m)
+      //   scale.z = head length (m); 0/missing → 0.23 * shaft length
+      // Head diameter is conventionally 2x shaft diameter (RViz default).
+      // Pre-1.7 this used only scale.x as `size` and ignored y/z, so a
+      // (3, 0.5, 0.5) goal arrow rendered as a tiny 1m triangle. We now
+      // forward all three as explicit dimensions so ArrowShape's
+      // extended mode draws the full RViz-style filled arrow.
+      var arrowShaftLen = (typeof scale.x === 'number' && scale.x > 0) ? scale.x : 1;
+      var arrowShaftWid = (typeof scale.y === 'number' && scale.y > 0) ? scale.y : 0.1;
+      var arrowHeadLen  = (typeof scale.z === 'number' && scale.z > 0) ? scale.z : (0.23 * arrowShaftLen);
       this.addChild(new ROS2D.ArrowShape({
-        size: scale.x || 1,
+        shaftLength: arrowShaftLen,
+        shaftWidth: arrowShaftWid,
+        headLength: arrowHeadLen,
+        headWidth: arrowShaftWid * 2,
         strokeSize: 0,
         strokeColor: fillColor,
         fillColor: fillColor
