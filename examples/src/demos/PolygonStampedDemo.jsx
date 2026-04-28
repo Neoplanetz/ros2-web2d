@@ -65,8 +65,10 @@ export function PolygonStampedDemo({ ros, viewer }) {
         <h3>PolygonStampedClient</h3>
         <p>
           Render a closed outline from <code>geometry_msgs/PolygonStamped</code>.
-          The default topic is the nav2 active footprint; pair with TF so the
-          outline tracks the robot pose across the map.
+          The default topic is the nav2 active footprint, which is already
+          pose-oriented in the costmap global frame (typically <code>map</code>
+          or <code>odom</code>). Enable TF only when the viewer's fixed frame
+          differs from the publisher's frame.
         </p>
       </div>
 

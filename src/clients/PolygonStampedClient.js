@@ -5,10 +5,11 @@
  *
  * Typical use is rviz-style footprint visualization. nav2 publishes
  * the active robot footprint on `/local_costmap/published_footprint`
- * and `/global_costmap/published_footprint`, both as PolygonStamped
- * with header.frame_id = 'base_link' (or the robot's body frame).
- * Pair this client with a tfClient so the polygon follows the robot
- * across the map.
+ * and `/global_costmap/published_footprint` as PolygonStamped. Those
+ * published footprints are already oriented in the message's
+ * `header.frame_id` (commonly the costmap global frame, such as
+ * `odom` or `map`). Provide a tfClient only when the viewer needs to
+ * transform that frame into its own fixed frame.
  *
  * Emits the following events:
  *   * 'change' - a new polygon has been applied
@@ -21,9 +22,8 @@
  *   * rootObject (optional) - the root createjs object to attach to
  *   * tfClient (optional) - ROSLIB.TFClient or ROSLIB.ROS2TFClient.
  *       When supplied the polygon is wrapped in a ROS2D.SceneNode
- *       keyed on the message's header.frame_id, so a footprint
- *       published in 'base_link' is drawn at the robot's current
- *       pose on the map.
+ *       keyed on the message's header.frame_id. Omit it when the
+ *       message already arrives in the same frame as the viewer.
  *   * strokeSize (optional) - forwarded to ROS2D.PolygonShape
  *   * strokeColor (optional) - forwarded to ROS2D.PolygonShape
  *   * fillColor (optional) - forwarded to ROS2D.PolygonShape

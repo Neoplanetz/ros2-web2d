@@ -160,7 +160,7 @@ returns a 0..255 RGBA tuple.
 | `OdometryClient` | `nav_msgs/Odometry` | Same arrow surface as `PoseStampedClient`; extracts `pose.pose` |
 | `PoseArrayClient` | `geometry_msgs/PoseArray` | Rebuilds every message; useful for AMCL particle clouds |
 | `LaserScanClient` | `sensor_msgs/LaserScan` | 2D hit points with optional `sampleStep` / `maxRange` |
-| `PolygonStampedClient` | `geometry_msgs/PolygonStamped` | Closed outline via `PolygonShape`; default topic `/local_costmap/published_footprint` so a `tfClient` instance renders the active nav2 footprint at the robot pose |
+| `PolygonStampedClient` | `geometry_msgs/PolygonStamped` | Closed outline via `PolygonShape`; default topic `/local_costmap/published_footprint` for active nav2 footprints; optional `tfClient` follows `header.frame_id` when frame conversion is needed |
 
 Shared options on ROS-driven clients: `ros`, `topic`, `rootObject`,
 `tfClient`. Every client also forwards the standard `ROSLIB.Topic`
@@ -192,13 +192,16 @@ new MarkerArrayClient({
 and renders each message through `PolygonShape`, a thin stroked
 (optionally filled) closed polygon. The default topic is
 `/local_costmap/published_footprint` because the most common use is
-visualizing the active nav2 robot footprint over the costmap.
+visualizing the active nav2 robot footprint over the costmap. Nav2's
+published footprint is already oriented in the message's
+`header.frame_id` (often `odom` or `map`); pass `tfClient` only when
+the viewer's fixed frame differs from that message frame.
 
 ```js
 new ROS2D.PolygonStampedClient({
   ros, rootObject: viewer.scene,
   topic: '/robot_0/local_costmap/published_footprint',
-  tfClient: tfClient,             // wraps in a SceneNode keyed on header.frame_id
+  tfClient: tfClient,             // optional frame conversion via header.frame_id
   strokeColor: '#ef4444',         // default red
   strokeSize: 0.03,               // ROS meters
   fillColor: 'rgba(239,68,68,0.1)', // optional translucent fill

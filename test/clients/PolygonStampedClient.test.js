@@ -138,7 +138,7 @@ describe('ROS2D.PolygonStampedClient', () => {
     });
     const setSpy = vi.spyOn(c.polygonShape, 'setPolygon');
     const topic = fake.topics[fake.topics.length - 1];
-    const msg = polygonMsg('base_link');
+    const msg = polygonMsg('map');
     topic.__emit(msg);
     expect(setSpy).toHaveBeenCalledWith(msg.polygon.points);
   });
@@ -150,8 +150,8 @@ describe('ROS2D.PolygonStampedClient', () => {
     });
     const setSpy = vi.spyOn(c.polygonShape, 'setPolygon');
     const topic = fake.topics[fake.topics.length - 1];
-    topic.__emit({ header: { frame_id: 'base_link' } });
-    topic.__emit({ header: { frame_id: 'base_link' }, polygon: {} });
+    topic.__emit({ header: { frame_id: 'map' } });
+    topic.__emit({ header: { frame_id: 'map' }, polygon: {} });
     expect(setSpy).not.toHaveBeenCalled();
   });
 
@@ -162,7 +162,7 @@ describe('ROS2D.PolygonStampedClient', () => {
     });
     const onChange = vi.fn();
     c.on('change', onChange);
-    fake.topics[fake.topics.length - 1].__emit(polygonMsg('base_link'));
+    fake.topics[fake.topics.length - 1].__emit(polygonMsg('map'));
     expect(onChange).toHaveBeenCalledTimes(1);
   });
 
@@ -187,9 +187,9 @@ describe('ROS2D.PolygonStampedClient', () => {
         rootObject: root,
         tfClient,
       });
-      fake.topics[fake.topics.length - 1].__emit(polygonMsg('robot_0/base_link'));
+      fake.topics[fake.topics.length - 1].__emit(polygonMsg('robot_0/map'));
       expect(c.node).not.toBeNull();
-      expect(c.node.frame_id).toBe('robot_0/base_link');
+      expect(c.node.frame_id).toBe('robot_0/map');
       expect(root.children).toContain(c.node);
     });
 
@@ -201,14 +201,14 @@ describe('ROS2D.PolygonStampedClient', () => {
         tfClient,
       });
       const topic = fake.topics[fake.topics.length - 1];
-      topic.__emit(polygonMsg('robot_0/base_link'));
+      topic.__emit(polygonMsg('robot_0/map'));
       const firstNode = c.node;
-      topic.__emit(polygonMsg('robot_0/base_link')); // same frame
+      topic.__emit(polygonMsg('robot_0/map')); // same frame
       expect(c.node).toBe(firstNode);
       expect(root.children.filter((ch) => ch === firstNode)).toHaveLength(1);
-      topic.__emit(polygonMsg('robot_1/base_link')); // different frame
+      topic.__emit(polygonMsg('robot_1/map')); // different frame
       expect(c.node).toBe(firstNode); // same node, retargeted
-      expect(c.node.frame_id).toBe('robot_1/base_link');
+      expect(c.node.frame_id).toBe('robot_1/map');
     });
 
     it('drops messages that have no header.frame_id (would orphan the node)', () => {
@@ -256,13 +256,13 @@ describe('ROS2D.PolygonStampedClient', () => {
         rootObject: root,
         tfClient,
       });
-      fake.topics[fake.topics.length - 1].__emit(polygonMsg('robot_0/base_link'));
+      fake.topics[fake.topics.length - 1].__emit(polygonMsg('robot_0/map'));
       const node = c.node;
       expect(root.children).toContain(node);
       c.unsubscribe();
       expect(root.children).not.toContain(node);
       expect(c.node).toBeNull();
-      expect(tfClient.__subscriberCount('robot_0/base_link')).toBe(0);
+      expect(tfClient.__subscriberCount('robot_0/map')).toBe(0);
     });
   });
 });

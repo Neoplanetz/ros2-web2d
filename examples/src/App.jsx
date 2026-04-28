@@ -37,7 +37,7 @@ const DEMOS = [
   {
     key: 'polygon-stamped',
     label: 'PolygonStampedClient',
-    summary: 'Render a closed outline (e.g. nav2 footprint) that tracks the robot via TF.',
+    summary: 'Render a closed outline (e.g. nav2 footprint, already pose-oriented in the published frame).',
     render: (props) => <PolygonStampedDemo {...props} />,
   },
   {
