@@ -26601,7 +26601,7 @@ var createjsExports = requireCreatejs();
 
 // import * as createjs from 'createjs-module';
 
-var REVISION = '1.6.2';
+var REVISION = '1.7.0';
 
 // convert the given global Stage coordinates to ROS coordinates
 createjsExports.Stage.prototype.globalToRos = function(x, y) {
@@ -28833,31 +28833,64 @@ var ArrowShape = /*@__PURE__*/(function (superclass) {
   	var fillColor = options.fillColor || createjsExports.Graphics.getRGB(255, 0, 0);
   	var pulse = options.pulse;
 
-  	// draw the arrow
+  	var hasExplicitDims =
+  		options.shaftLength !== undefined ||
+  		options.shaftWidth !== undefined ||
+  		options.headLength !== undefined ||
+  		options.headWidth !== undefined;
+
   	var graphics = new createjsExports.Graphics();
 
-  	var headLen = size / 3.0;
-  	var headWidth = headLen * 2.0 / 3.0;
+  	if (hasExplicitDims) {
+  		// Extended mode — filled 7-vertex polygon with explicit shaft
+  		// thickness. Vertices traced counter-clockwise from the
+  		// bottom-left of the shaft so the standard fill rule closes
+  		// the outline cleanly.
+  		var extShaftLength = (typeof options.shaftLength === 'number') ? options.shaftLength : (size * 2 / 3);
+  		var extShaftWidth  = (typeof options.shaftWidth  === 'number') ? options.shaftWidth  : (size * 0.08);
+  		var extHeadLength  = (typeof options.headLength  === 'number') ? options.headLength  : (size / 3);
+  		var extHeadWidth   = (typeof options.headWidth   === 'number') ? options.headWidth   : (extShaftWidth * 2);
 
-  	// When strokeSize is 0, skip the stroke commands entirely so the
-  	// shaft line disappears (no zero-width hairline) and only the filled
-  	// head triangle remains — matches RViz "no stroke" rendering and
-  	// matches the NavigationArrow pattern.
-  	if (strokeSize > 0) {
-  		graphics.setStrokeStyle(strokeSize);
-  		graphics.beginStroke(strokeColor);
-  		graphics.moveTo(0, 0);
-  		graphics.lineTo(size-headLen, 0);
-  	}
+  		if (strokeSize > 0) {
+  			graphics.setStrokeStyle(strokeSize);
+  			graphics.beginStroke(strokeColor);
+  		}
+  		graphics.beginFill(fillColor);
+  		graphics.moveTo(0, -extShaftWidth / 2);
+  		graphics.lineTo(extShaftLength, -extShaftWidth / 2);
+  		graphics.lineTo(extShaftLength, -extHeadWidth / 2);
+  		graphics.lineTo(extShaftLength + extHeadLength, 0);
+  		graphics.lineTo(extShaftLength, extHeadWidth / 2);
+  		graphics.lineTo(extShaftLength, extShaftWidth / 2);
+  		graphics.lineTo(0, extShaftWidth / 2);
+  		graphics.closePath();
+  		graphics.endFill();
+  		if (strokeSize > 0) {
+  			graphics.endStroke();
+  		}
+  	} else {
+  		// Legacy mode — line shaft + filled head triangle. Preserved so
+  		// that callers using only the `size` option get byte-for-byte
+  		// identical rendering with v1.6.x.
+  		var headLen = size / 3.0;
+  		var headWidth = headLen * 2.0 / 3.0;
 
-  	graphics.beginFill(fillColor);
-  	graphics.moveTo(size, 0);
-  	graphics.lineTo(size-headLen, headWidth / 2.0);
-  	graphics.lineTo(size-headLen, -headWidth / 2.0);
-  	graphics.closePath();
-  	graphics.endFill();
-  	if (strokeSize > 0) {
-  		graphics.endStroke();
+  		if (strokeSize > 0) {
+  			graphics.setStrokeStyle(strokeSize);
+  			graphics.beginStroke(strokeColor);
+  			graphics.moveTo(0, 0);
+  			graphics.lineTo(size-headLen, 0);
+  		}
+
+  		graphics.beginFill(fillColor);
+  		graphics.moveTo(size, 0);
+  		graphics.lineTo(size-headLen, headWidth / 2.0);
+  		graphics.lineTo(size-headLen, -headWidth / 2.0);
+  		graphics.closePath();
+  		graphics.endFill();
+  		if (strokeSize > 0) {
+  			graphics.endStroke();
+  		}
   	}
 
   	// create the shape (parent ctor already invoked at top)
@@ -28928,8 +28961,23 @@ var Marker = /*@__PURE__*/(function (superclass) {
 
     switch (message.type) {
       case 0: // ARROW
+        // RViz visualization_msgs/Marker arrow convention:
+        //   scale.x = shaft length (m)
+        //   scale.y = shaft diameter (m)
+        //   scale.z = head length (m); 0/missing → 0.23 * shaft length
+        // Head diameter is conventionally 2x shaft diameter (RViz default).
+        // Pre-1.7 this used only scale.x as `size` and ignored y/z, so a
+        // (3, 0.5, 0.5) goal arrow rendered as a tiny 1m triangle. We now
+        // forward all three as explicit dimensions so ArrowShape's
+        // extended mode draws the full RViz-style filled arrow.
+        var arrowShaftLen = (typeof scale.x === 'number' && scale.x > 0) ? scale.x : 1;
+        var arrowShaftWid = (typeof scale.y === 'number' && scale.y > 0) ? scale.y : 0.1;
+        var arrowHeadLen  = (typeof scale.z === 'number' && scale.z > 0) ? scale.z : (0.23 * arrowShaftLen);
         this.addChild(new ArrowShape({
-          size: scale.x || 1,
+          shaftLength: arrowShaftLen,
+          shaftWidth: arrowShaftWid,
+          headLength: arrowHeadLen,
+          headWidth: arrowShaftWid * 2,
           strokeSize: 0,
           strokeColor: fillColor,
           fillColor: fillColor

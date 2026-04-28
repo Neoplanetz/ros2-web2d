@@ -3,6 +3,34 @@
 All notable changes to this project are documented here.
 The project follows [Semantic Versioning](https://semver.org/).
 
+## [1.7.0] — 2026-04-28
+
+### Added
+
+- **`ArrowShape` proportional dimension options** —
+  `shaftLength`, `shaftWidth`, `headLength`, `headWidth` (all in the
+  same unit as `size`). When any of these is provided the shape
+  switches to an "extended mode" that draws a single filled
+  7-vertex polygon with explicit shaft thickness, matching the
+  RViz arrow appearance and the visualization_msgs/Marker
+  scale.x / scale.y / scale.z convention. When none are provided,
+  the legacy line-shaft + filled-triangle-head rendering is
+  preserved byte-for-byte for backward compatibility.
+
+### Changed
+
+- **`Marker` case 0 ARROW maps `scale.x/y/z` to ArrowShape's new
+  proportional options.** Pre-1.7 the case used only `scale.x` as
+  `size` and ignored `scale.y` (shaft diameter) and `scale.z`
+  (head length), so an omnifleet "task_marker" goal arrow at
+  `(3, 0.5, 0.5)` rendered as a tiny 1 m triangle. The case now
+  forwards all three dimensions to `ArrowShape` (with fallbacks:
+  `shaftLength=1`, `shaftWidth=0.1`, `headLength=0.23 * shaftLength`
+  when `scale.z` is 0/missing, `headWidth=2 * shaftWidth`), so
+  arrows render at the size and proportions the RViz / nav2
+  message intended. The `strokeSize: 0` fill-only contract from
+  v1.6.2 is preserved.
+
 ## [1.6.2] — 2026-04-28
 
 ### Fixed
