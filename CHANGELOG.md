@@ -3,6 +3,33 @@
 All notable changes to this project are documented here.
 The project follows [Semantic Versioning](https://semver.org/).
 
+## [1.6.1] — 2026-04-28
+
+### Fixed
+
+- **`PolygonStampedClient` documentation accuracy.** The v1.6.0 docs
+  claimed nav2 publishes the active footprint in the robot's
+  `base_link` frame and recommended pairing the client with a
+  `tfClient` to make the outline track the robot pose. That is
+  incorrect: `nav2_costmap_2d` calls `getOrientedFootprint()` every
+  publish tick to apply the current robot pose, then publishes the
+  resulting polygon already oriented in the costmap global frame
+  (typically `map` or `odom`). A consumer whose viewer's fixed frame
+  matches the publisher's frame does not need a `tfClient` at all —
+  the polygon already moves with the robot because nav2 republishes
+  the transformed shape on every tick. Pair the client with a
+  `tfClient` only when the viewer's fixed frame differs from the
+  publisher's frame.
+- Updated CHANGELOG (1.6.0 entry), README (Client reference table),
+  source JSDoc (`src/clients/PolygonStampedClient.js`), examples
+  studio (App.jsx demo summary, `PolygonStampedDemo.jsx` copy), and
+  the unit test fixture frames (now `map` / `robot_0/map` /
+  `robot_1/map` instead of `base_link` variants) to match.
+
+No code path changed — this is a docs / fixture-only release. Behavior
+of `PolygonStampedClient` and `PolygonShape` is byte-for-byte
+identical to v1.6.0.
+
 ## [1.6.0] — 2026-04-28
 
 ### Added
@@ -11,10 +38,10 @@ The project follows [Semantic Versioning](https://semver.org/).
   `geometry_msgs/PolygonStamped` and renders each message as a closed
   outline. The default topic is
   `/local_costmap/published_footprint`, the standard nav2 footprint
-  channel, so pairing the client with a `tfClient` paints the active
-  robot footprint over the map and follows the robot's pose. In
-  multi-robot deployments construct one client per robot with a
-  distinct `strokeColor` for visual attribution.
+  channel. Published footprints are already oriented in their message
+  frame; pair the client with a `tfClient` only when the viewer needs
+  frame conversion. In multi-robot deployments construct one client
+  per robot with a distinct `strokeColor` for visual attribution.
 - **`ROS2D.PolygonShape`** — read-only renderer used by
   `PolygonStampedClient`. A thin `createjs.Shape` that takes a list
   of `{ x, y }` vertices via `setPolygon(points)` and draws a stroked
