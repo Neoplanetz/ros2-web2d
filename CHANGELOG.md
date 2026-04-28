@@ -3,6 +3,34 @@
 All notable changes to this project are documented here.
 The project follows [Semantic Versioning](https://semver.org/).
 
+## [1.6.0] — 2026-04-28
+
+### Added
+
+- **`ROS2D.PolygonStampedClient`** — subscribes to
+  `geometry_msgs/PolygonStamped` and renders each message as a closed
+  outline. The default topic is
+  `/local_costmap/published_footprint`, the standard nav2 footprint
+  channel, so pairing the client with a `tfClient` paints the active
+  robot footprint over the map and follows the robot's pose. In
+  multi-robot deployments construct one client per robot with a
+  distinct `strokeColor` for visual attribution.
+- **`ROS2D.PolygonShape`** — read-only renderer used by
+  `PolygonStampedClient`. A thin `createjs.Shape` that takes a list
+  of `{ x, y }` vertices via `setPolygon(points)` and draws a stroked
+  (optionally filled) closed (or open) polyline. Handles the canvas
+  Y-flip via `negateY` so it works either standalone or wrapped in a
+  `SceneNode`. Distinct from the existing `ROS2D.PolygonMarker`,
+  which is an interactive editor with line/point callbacks; choose
+  `PolygonShape` for read-only rendering and `PolygonMarker` for
+  user-edit flows.
+
+  29 new unit tests covering rendering invariants (closed/open,
+  fill/no-fill, Y-flip, invalid-vertex rejection, no-overdraw on
+  re-set) and client wiring (topic options forwarding via the
+  v1.4.3 helper, tfClient/SceneNode integration with frame retarget,
+  unsubscribe cleanup including TF subscriber teardown).
+
 ## [1.5.1] — 2026-04-27
 
 ### Fixed

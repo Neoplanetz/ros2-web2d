@@ -26601,7 +26601,7 @@ var createjsExports = requireCreatejs();
 
 // import * as createjs from 'createjs-module';
 
-var REVISION = '1.5.1';
+var REVISION = '1.6.0';
 
 // convert the given global Stage coordinates to ROS coordinates
 createjsExports.Stage.prototype.globalToRos = function(x, y) {
@@ -28643,6 +28643,175 @@ var LaserScanClient = /*@__PURE__*/(function (EventEmitter) {
 
 /**
  * @fileOverview
+ * Draws a closed (or open) polyline from a list of {x, y} vertices.
+ * Used by ROS2D.PolygonStampedClient to render footprints, obstacle
+ * regions, and similar 2D outlines from geometry_msgs/Polygon.
+ *
+ * The shape is read-only — for an editable polygon (drag vertices,
+ * insert points) use ROS2D.PolygonMarker instead.
+ */
+
+var PolygonShape = /*@__PURE__*/(function (superclass) {
+  function PolygonShape(options) {
+    // Parent init first; transpiled ES6 class requires super() before `this`.
+    superclass.call(this);
+    options = options || {};
+    this.strokeSize = (typeof options.strokeSize === 'number') ? options.strokeSize : 0.03;
+    this.strokeColor = options.strokeColor || createjsExports.Graphics.getRGB(255, 0, 0);
+    this.fillColor = (options.fillColor === undefined) ? null : options.fillColor;
+    this.closed = options.closed !== false;
+    this.negateY = options.negateY !== false;
+
+    this.graphics = new createjsExports.Graphics();
+  }
+
+  if ( superclass ) PolygonShape.__proto__ = superclass;
+  PolygonShape.prototype = Object.create( superclass && superclass.prototype );
+  PolygonShape.prototype.constructor = PolygonShape;
+  /**
+   * Redraw the polygon from the given vertex list.
+   *
+   * @param points - array of objects with numeric x and y fields. A z
+   *   field is ignored (this is a 2D shape). Empty or missing input
+   *   clears the graphics.
+   */
+  PolygonShape.prototype.setPolygon = function setPolygon (points) {
+    this.graphics.clear();
+
+    if (!points || points.length < 2) {
+      return;
+    }
+
+    var first = points[0];
+    if (!this._isValidPoint(first)) {
+      return;
+    }
+
+    if (this.fillColor) {
+      this.graphics.beginFill(this.fillColor);
+    }
+    if (this.strokeSize > 0) {
+      this.graphics.setStrokeStyle(this.strokeSize);
+      this.graphics.beginStroke(this.strokeColor);
+    }
+
+    this.graphics.moveTo(first.x, this.negateY ? -first.y : first.y);
+    for (var i = 1; i < points.length; i++) {
+      var p = points[i];
+      if (!this._isValidPoint(p)) {
+        continue;
+      }
+      this.graphics.lineTo(p.x, this.negateY ? -p.y : p.y);
+    }
+    if (this.closed) {
+      this.graphics.closePath();
+    }
+
+    if (this.strokeSize > 0) {
+      this.graphics.endStroke();
+    }
+    if (this.fillColor) {
+      this.graphics.endFill();
+    }
+  };
+  /**
+   * @private
+   * @param point - candidate {x, y} vertex
+   * @returns {boolean} true when both coordinates are finite numbers
+   */
+  PolygonShape.prototype._isValidPoint = function _isValidPoint (point) {
+    return point &&
+      typeof point.x === 'number' && isFinite(point.x) &&
+      typeof point.y === 'number' && isFinite(point.y);
+  };
+
+  return PolygonShape;
+}(createjsExports.Shape));
+
+var PolygonStampedClient = /*@__PURE__*/(function (EventEmitter) {
+  function PolygonStampedClient(options) {
+    EventEmitter.call(this);
+    options = options || {};
+    var that = this;
+    var ros = options.ros;
+
+    this.topicName = options.topic || '/local_costmap/published_footprint';
+    this.rootObject = options.rootObject || new createjsExports.Container();
+    this.tfClient = options.tfClient || null;
+    this.node = null;
+
+    this.polygonShape = new PolygonShape({
+      strokeSize: options.strokeSize,
+      strokeColor: options.strokeColor,
+      fillColor: options.fillColor,
+      closed: options.closed,
+      // SceneNode applies the TF transform that already accounts for
+      // the canvas Y-down convention, so the shape itself must not
+      // double-negate. Without tfClient the shape draws straight into
+      // the rootObject and has to flip Y itself.
+      negateY: !this.tfClient
+    });
+
+    if (!this.tfClient) {
+      this.rootObject.addChild(this.polygonShape);
+    }
+
+    this.rosTopic = _makeTopic(ros, this.topicName, 'geometry_msgs/PolygonStamped', options);
+
+    this.rosTopic.subscribe(function(message) {
+      var polygon = message && message.polygon;
+      var points = polygon && polygon.points;
+      if (!points) {
+        return;
+      }
+
+      if (that.tfClient) {
+        var frame = message.header && message.header.frame_id;
+        if (!frame) {
+          return;
+        }
+        if (!that.node) {
+          that.node = new SceneNode({
+            tfClient: that.tfClient,
+            frame_id: frame,
+            object: that.polygonShape
+          });
+          that.rootObject.addChild(that.node);
+        } else if (that.node.frame_id !== frame) {
+          that.node.setFrame(frame);
+        }
+      }
+
+      that.polygonShape.setPolygon(points);
+      that.emit('change');
+    });
+  }
+
+  if ( EventEmitter ) PolygonStampedClient.__proto__ = EventEmitter;
+  PolygonStampedClient.prototype = Object.create( EventEmitter && EventEmitter.prototype );
+  PolygonStampedClient.prototype.constructor = PolygonStampedClient;
+  /**
+   * Detach from the topic and remove the managed shape (or SceneNode
+   * wrapper) from the rootObject.
+   */
+  PolygonStampedClient.prototype.unsubscribe = function unsubscribe () {
+    if (this.rosTopic) {
+      this.rosTopic.unsubscribe();
+    }
+    if (this.node) {
+      this.node.unsubscribe();
+      this.rootObject.removeChild(this.node);
+      this.node = null;
+    } else if (this.polygonShape && this.rootObject) {
+      this.rootObject.removeChild(this.polygonShape);
+    }
+  };
+
+  return PolygonStampedClient;
+}(EventEmitter));
+
+/**
+ * @fileOverview
  * @author Bart van Vliet - bart@dobots.nl
  */
 
@@ -30033,6 +30202,8 @@ exports.PanView = PanView;
 exports.PathClient = PathClient;
 exports.PathShape = PathShape;
 exports.PolygonMarker = PolygonMarker;
+exports.PolygonShape = PolygonShape;
+exports.PolygonStampedClient = PolygonStampedClient;
 exports.PoseArrayClient = PoseArrayClient;
 exports.PoseInteractionView = PoseInteractionView;
 exports.PoseStampedClient = PoseStampedClient;
