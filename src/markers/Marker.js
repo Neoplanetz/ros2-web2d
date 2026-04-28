@@ -144,10 +144,24 @@ ROS2D.Marker = function(options) {
       break;
 
     case 9: // TEXT_VIEW_FACING
-      var fontSize = scale.z || 1;
+      // scale.z is the text height in meters (RViz convention). createjs
+      // Text is raster, so rendering at `${scale.z}px Arial` would
+      // produce a sub-pixel-tall texture that the parent scene then
+      // upscales into a blurry / invisible smear once the px-per-meter
+      // scale is applied. Instead, rasterize at a fixed
+      // TEXT_RASTER_PX font and scale by scale.z / TEXT_RASTER_PX so
+      // the rendered text height ends up at scale.z meters in world
+      // units, matching RViz vector text. textAlign / textBaseline
+      // center the text on the marker pose, again matching RViz.
+      var TEXT_RASTER_PX = 100;
+      var fontSizeMeters = (typeof scale.z === 'number' && scale.z > 0) ? scale.z : 1;
       var text = new createjs.Text(
-        message.text || '', fontSize + 'px Arial', fillColor
+        message.text || '', TEXT_RASTER_PX + 'px Arial', fillColor
       );
+      text.textAlign = 'center';
+      text.textBaseline = 'middle';
+      text.scaleX = fontSizeMeters / TEXT_RASTER_PX;
+      text.scaleY = fontSizeMeters / TEXT_RASTER_PX;
       this.addChild(text);
       break;
 

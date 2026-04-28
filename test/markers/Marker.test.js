@@ -23,7 +23,10 @@ function FakeText(text, font, color) {
   this.text = text;
   this.font = font;
   this.color = color;
+  this.scaleX = 1;
   this.scaleY = 1;
+  this.textAlign = 'start';
+  this.textBaseline = 'top';
 }
 
 function FakeContainer() {
@@ -164,16 +167,50 @@ describe('ROS2D.Marker', () => {
     expect(m.children).toHaveLength(2);
   });
 
-  it('TEXT_VIEW_FACING (type 9) creates a createjs.Text with default scaleY (no extra flip)', () => {
+  it('TEXT_VIEW_FACING (type 9) rasterizes at 100px and scales scale.z meters per unit', () => {
+    // scale.z is the text height in meters; render at the fixed 100px
+    // raster and scale by 0.5 / 100 so the world-space height is 0.5 m.
     const m = new Marker({
       message: {
         type: 9, pose: idPose, scale: { x: 1, y: 1, z: 0.5 }, color: whiteOpaque, text: 'hello',
       },
     });
     expect(m.children).toHaveLength(1);
-    expect(m.children[0]).toBeInstanceOf(FakeText);
-    expect(m.children[0].text).toBe('hello');
-    expect(m.children[0].scaleY).toBe(1);
+    const text = m.children[0];
+    expect(text).toBeInstanceOf(FakeText);
+    expect(text.text).toBe('hello');
+    expect(text.font).toBe('100px Arial');
+    expect(text.scaleX).toBeCloseTo(0.5 / 100, 9);
+    expect(text.scaleY).toBeCloseTo(0.5 / 100, 9);
+    // Centered on marker pose (RViz convention)
+    expect(text.textAlign).toBe('center');
+    expect(text.textBaseline).toBe('middle');
+  });
+
+  it('TEXT_VIEW_FACING falls back to scale.z=1 m when scale.z is missing or zero', () => {
+    const m = new Marker({
+      message: {
+        type: 9, pose: idPose, scale: { x: 1, y: 1, z: 0 }, color: whiteOpaque, text: 'x',
+      },
+    });
+    const text = m.children[0];
+    // Fallback: 1 m / 100 px raster = 0.01 scale
+    expect(text.scaleX).toBeCloseTo(1 / 100, 9);
+    expect(text.scaleY).toBeCloseTo(1 / 100, 9);
+  });
+
+  it('TEXT_VIEW_FACING handles small fonts (e.g. omnifleet 0.4 m task labels)', () => {
+    // omnifleet uses scale.z=0.4 for "Task: T001" labels. Pre-fix code
+    // rendered these as 0.4px raster (invisible after scene scale);
+    // post-fix they render at 100px raster, scaled by 0.004 → 0.4 m.
+    const m = new Marker({
+      message: {
+        type: 9, pose: idPose, scale: { x: 1, y: 1, z: 0.4 }, color: whiteOpaque, text: 'Task: T001',
+      },
+    });
+    const text = m.children[0];
+    expect(text.font).toBe('100px Arial');
+    expect(text.scaleY).toBeCloseTo(0.4 / 100, 9);
   });
 
   it('TRIANGLE_LIST (type 11) emits triangles in groups of 3 points', () => {
