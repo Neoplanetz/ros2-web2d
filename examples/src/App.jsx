@@ -6,6 +6,7 @@ import { OccupancyGridDemo } from './demos/OccupancyGridDemo.jsx';
 import { ImageMapDemo } from './demos/ImageMapDemo.jsx';
 import { MarkerArrayDemo } from './demos/MarkerArrayDemo.jsx';
 import { LaserScanDemo } from './demos/LaserScanDemo.jsx';
+import { PolygonStampedDemo } from './demos/PolygonStampedDemo.jsx';
 import { NavigationOverlayDemo } from './demos/NavigationOverlayDemo.jsx';
 
 const DEMOS = [
@@ -32,6 +33,12 @@ const DEMOS = [
     label: 'LaserScanClient',
     summary: 'Render a lidar scan as 2D hit points, with optional TF support.',
     render: (props) => <LaserScanDemo {...props} />,
+  },
+  {
+    key: 'polygon-stamped',
+    label: 'PolygonStampedClient',
+    summary: 'Render a closed outline (e.g. nav2 footprint) that tracks the robot via TF.',
+    render: (props) => <PolygonStampedDemo {...props} />,
   },
   {
     key: 'navigation',
