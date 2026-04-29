@@ -156,6 +156,44 @@ describe('ROS2D.Marker', () => {
     expect(opts.headLength).toBeCloseTo(0.23 * 4, 5);
   });
 
+  it('ARROW (type 0) uses points[0] and points[1] as start/end when provided', () => {
+    const m = new Marker({
+      message: {
+        type: 0,
+        pose: idPose,
+        scale: { x: 0.2, y: 0.6, z: 0.4 },
+        color: whiteOpaque,
+        points: [{ x: 1, y: 2 }, { x: 4, y: 6 }],
+      },
+    });
+    const arrow = m.children[0];
+    const opts = arrow.opts;
+    expect(opts.shaftLength).toBeCloseTo(4.6, 9);
+    expect(opts.shaftWidth).toBe(0.2);
+    expect(opts.headLength).toBe(0.4);
+    expect(opts.headWidth).toBe(0.6);
+    expect(opts.strokeSize).toBe(0);
+    expect(arrow.x).toBe(1);
+    expect(arrow.y).toBe(-2);
+    expect(arrow.rotation).toBeCloseTo((-Math.atan2(4, 3) * 180) / Math.PI, 9);
+  });
+
+  it('ARROW (type 0) derives point-mode head length from arrow length when scale.z is 0', () => {
+    const m = new Marker({
+      message: {
+        type: 0,
+        pose: idPose,
+        scale: { x: 0.2, y: 0, z: 0 },
+        color: whiteOpaque,
+        points: [{ x: 0, y: 0 }, { x: 3, y: 4 }],
+      },
+    });
+    const opts = m.children[0].opts;
+    expect(opts.headLength).toBeCloseTo(0.23 * 5, 9);
+    expect(opts.shaftLength).toBeCloseTo(5 - (0.23 * 5), 9);
+    expect(opts.headWidth).toBeCloseTo(0.2 * 2, 9);
+  });
+
   it('LINE_STRIP (type 4) emits one moveTo and N-1 lineTo commands', () => {
     const m = new Marker({
       message: {
