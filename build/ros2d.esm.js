@@ -26577,7 +26577,7 @@ var createjsExports = requireCreatejs();
 
 // import * as createjs from 'createjs-module';
 
-var REVISION = '1.7.0';
+var REVISION = '1.7.1';
 
 // convert the given global Stage coordinates to ROS coordinates
 createjsExports.Stage.prototype.globalToRos = function(x, y) {
@@ -28937,15 +28937,45 @@ var Marker = /*@__PURE__*/(function (superclass) {
 
     switch (message.type) {
       case 0: // ARROW
-        // RViz visualization_msgs/Marker arrow convention:
-        //   scale.x = shaft length (m)
-        //   scale.y = shaft diameter (m)
-        //   scale.z = head length (m); 0/missing → 0.23 * shaft length
-        // Head diameter is conventionally 2x shaft diameter (RViz default).
-        // Pre-1.7 this used only scale.x as `size` and ignored y/z, so a
-        // (3, 0.5, 0.5) goal arrow rendered as a tiny 1m triangle. We now
-        // forward all three as explicit dimensions so ArrowShape's
-        // extended mode draws the full RViz-style filled arrow.
+        // RViz supports two ARROW conventions. With points[0]/points[1],
+        // those points define the arrow start/end and scale.x/y/z mean
+        // shaft diameter / head diameter / head length. Without points,
+        // pose/orientation define direction and scale.x/y/z mean shaft
+        // length / shaft diameter / head length.
+        var hasArrowPoints = points.length >= 2 &&
+          typeof points[0].x === 'number' &&
+          typeof points[0].y === 'number' &&
+          typeof points[1].x === 'number' &&
+          typeof points[1].y === 'number';
+
+        if (hasArrowPoints) {
+          var arrowStart = points[0];
+          var arrowEnd = points[1];
+          var arrowDx = arrowEnd.x - arrowStart.x;
+          var arrowDy = arrowEnd.y - arrowStart.y;
+          var arrowLen = Math.sqrt((arrowDx * arrowDx) + (arrowDy * arrowDy));
+
+          if (arrowLen > 0) {
+            var pointShaftWid = (typeof scale.x === 'number' && scale.x > 0) ? scale.x : 0.1;
+            var pointHeadWid = (typeof scale.y === 'number' && scale.y > 0) ? scale.y : (pointShaftWid * 2);
+            var pointHeadLen = (typeof scale.z === 'number' && scale.z > 0) ? Math.min(scale.z, arrowLen) : (0.23 * arrowLen);
+            var pointArrow = new ArrowShape({
+              shaftLength: Math.max(arrowLen - pointHeadLen, 0),
+              shaftWidth: pointShaftWid,
+              headLength: pointHeadLen,
+              headWidth: pointHeadWid,
+              strokeSize: 0,
+              strokeColor: fillColor,
+              fillColor: fillColor
+            });
+            pointArrow.x = arrowStart.x;
+            pointArrow.y = -arrowStart.y;
+            pointArrow.rotation = (-Math.atan2(arrowDy, arrowDx) * 180) / Math.PI;
+            this.addChild(pointArrow);
+            break;
+          }
+        }
+
         var arrowShaftLen = (typeof scale.x === 'number' && scale.x > 0) ? scale.x : 1;
         var arrowShaftWid = (typeof scale.y === 'number' && scale.y > 0) ? scale.y : 0.1;
         var arrowHeadLen  = (typeof scale.z === 'number' && scale.z > 0) ? scale.z : (0.23 * arrowShaftLen);

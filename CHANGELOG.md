@@ -3,6 +3,31 @@
 All notable changes to this project are documented here.
 The project follows [Semantic Versioning](https://semver.org/).
 
+## [1.7.1] — 2026-04-29
+
+### Fixed
+
+- **`Marker` case 0 ARROW now supports the RViz points-based
+  convention.** RViz `visualization_msgs/Marker` ARROW has two
+  recognized conventions and v1.7.0 only implemented the first:
+  - **Pose-based** (no `points`): `scale.x` = shaft length,
+    `scale.y` = shaft diameter, `scale.z` = head length; direction
+    comes from `pose.orientation`. (Already supported.)
+  - **Points-based** (`points[0..1]` supplied): the arrow runs from
+    `points[0]` to `points[1]`; `scale.x` is reinterpreted as shaft
+    *diameter*, `scale.y` as head diameter, and `scale.z` as head
+    length; the arrow length is derived from the point distance and
+    `pose.orientation` is ignored (`Marker.applyPose` still anchors
+    the container in the parent frame so the arrow child's
+    coordinates are relative to that frame).
+
+  Without this fix, a publisher using points-mode arrows had its
+  `scale.x` (a small diameter) misinterpreted as a shaft length —
+  rendering a tiny arrow regardless of the point distance. Defensive
+  guards: `arrowLen > 0` falls back to pose mode on degenerate input;
+  head length is clamped to `<= arrowLen`; shaft length is clamped
+  nonnegative.
+
 ## [1.7.0] — 2026-04-28
 
 ### Added
