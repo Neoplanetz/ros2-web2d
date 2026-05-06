@@ -22,6 +22,12 @@
  *   * tfClient (optional) - ROSLIB.TFClient or ROSLIB.ROS2TFClient; when
  *       present, each marker is wrapped in a ROS2D.SceneNode keyed on
  *       its own header.frame_id.
+ *   * rvizOrder (optional, default false) - when true, marker children of
+ *       the rootObject are reordered after each message so that
+ *       LINE_STRIP / LINE_LIST (types 4, 5) render below all other
+ *       geometry markers, and TEXT_VIEW_FACING (type 9) renders above
+ *       them - matching RViz2's implicit render order. Within each
+ *       tier the publish (insertion) order is preserved.
  */
 ROS2D.MarkerArrayClient = function(options) {
   EventEmitter.call(this);
@@ -31,8 +37,9 @@ ROS2D.MarkerArrayClient = function(options) {
   this.topicName = options.topic || '/markers';
   this.rootObject = options.rootObject || new createjs.Container();
   this.tfClient = options.tfClient || null;
+  this.rvizOrder = options.rvizOrder === true;
 
-  // key = ns + ':' + id  ->  { obj: child, node: SceneNode|null, timer: timeoutId|null }
+  // key = ns + ':' + id  ->  { obj: child, node: SceneNode|null, timer: timeoutId|null, type: int }
   this.markers = {};
 
   this.rosTopic = ROS2D._makeTopic(ros, this.topicName, 'visualization_msgs/MarkerArray', options);
@@ -46,6 +53,9 @@ ROS2D.MarkerArrayClient.prototype.processMessage = function(message) {
   var markers = (message && message.markers) || [];
   for (var i = 0; i < markers.length; i++) {
     this._handleMarker(markers[i]);
+  }
+  if (this.rvizOrder) {
+    this._applyRvizOrder();
   }
   this.emit('change');
 };
@@ -79,7 +89,7 @@ ROS2D.MarkerArrayClient.prototype._handleMarker = function(m) {
     child = new ROS2D.Marker({ message: m });
   }
   this.rootObject.addChild(child);
-  var entry = { obj: child, node: sceneNode, timer: null };
+  var entry = { obj: child, node: sceneNode, timer: null, type: m.type };
   var lifeSec = (m.lifetime && m.lifetime.sec) || 0;
   var lifeNs = (m.lifetime && m.lifetime.nanosec) || 0;
   if (lifeSec > 0 || lifeNs > 0) {
@@ -89,11 +99,62 @@ ROS2D.MarkerArrayClient.prototype._handleMarker = function(m) {
       // Guard against double-removal: only act if the entry is still ours.
       if (that.markers[key] === entry) {
         that._removeMarker(key);
+        if (that.rvizOrder) {
+          that._applyRvizOrder();
+        }
         that.emit('change');
       }
     }, ms);
   }
   this.markers[key] = entry;
+};
+
+// Returns 0 (bottom), 1 (middle), or 2 (top) for the given marker type.
+// visualization_msgs/Marker types: 4=LINE_STRIP, 5=LINE_LIST, 9=TEXT_VIEW_FACING.
+ROS2D.MarkerArrayClient.prototype._typeRank = function(type) {
+  if (type === 9) {
+    return 2;
+  }
+  if (type === 4 || type === 5) {
+    return 0;
+  }
+  return 1;
+};
+
+// Reorder our markers within rootObject so that lines render below
+// geometry markers, which render below text markers - matching RViz2's
+// implicit render order. Within each tier, current sibling order is
+// preserved (so publish/insertion order survives across re-applications).
+// Children of rootObject we don't own are not reshuffled relative to
+// each other; they end up below our reattached set because every owned
+// child is moved to numChildren-1.
+ROS2D.MarkerArrayClient.prototype._applyRvizOrder = function() {
+  var buckets = [[], [], []];
+  for (var k in this.markers) {
+    if (!Object.prototype.hasOwnProperty.call(this.markers, k)) {
+      continue;
+    }
+    var entry = this.markers[k];
+    if (!entry || !entry.obj) {
+      continue;
+    }
+    var idx = this.rootObject.getChildIndex(entry.obj);
+    if (idx < 0) {
+      continue;
+    }
+    buckets[this._typeRank(entry.type)].push({ obj: entry.obj, idx: idx });
+  }
+  for (var t = 0; t < buckets.length; t++) {
+    buckets[t].sort(function(a, b) { return a.idx - b.idx; });
+  }
+  // Move bottom-tier first, then middle, then top. setChildIndex to
+  // numChildren-1 places the moved child at the end (= drawn last =
+  // visually on top), so the last-moved tier ends up on top.
+  for (var t2 = 0; t2 < buckets.length; t2++) {
+    for (var j = 0; j < buckets[t2].length; j++) {
+      this.rootObject.setChildIndex(buckets[t2][j].obj, this.rootObject.numChildren - 1);
+    }
+  }
 };
 
 ROS2D.MarkerArrayClient.prototype._removeMarker = function(key) {

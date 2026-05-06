@@ -3,6 +3,35 @@
 All notable changes to this project are documented here.
 The project follows [Semantic Versioning](https://semver.org/).
 
+## [1.7.2] — 2026-05-06
+
+### Added
+
+- **`MarkerArrayClient` constructor option `rvizOrder`** (default
+  `false`). When enabled, marker children of the `rootObject` are
+  reordered after each MarkerArray message so that
+  `TEXT_VIEW_FACING` (type 9) renders above all geometry markers,
+  and `LINE_STRIP` / `LINE_LIST` (types 4, 5) render below them —
+  matching RViz2's implicit render order. Within each tier the
+  publish (insertion) order is preserved (stable sort). All other
+  marker types render in the middle tier. Opt-in: the default
+  remains v1.7.1's "render in publish order" behavior so existing
+  consumers see no visual change.
+
+  Use case: a topology graph published as separate `edges`
+  (LINE_STRIP), `nodes` (SPHERE / CYLINDER), and `node_ids`
+  (TEXT_VIEW_FACING) namespaces previously rendered in publish
+  order, so labels could be hidden by node geometry. With
+  `rvizOrder: true` the labels are guaranteed to sit on top, lines
+  underneath, matching what RViz2 displays.
+
+- **`Marker.markerType`** — the original
+  `visualization_msgs/Marker.type` integer is now exposed as a
+  property on the constructed `Marker` instance, so external
+  wrappers (and `MarkerArrayClient`'s new ordering) can introspect
+  child markers without re-parsing the source message. Always
+  exposed regardless of `rvizOrder`.
+
 ## [1.7.1] — 2026-04-29
 
 ### Fixed

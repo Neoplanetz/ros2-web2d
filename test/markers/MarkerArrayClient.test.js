@@ -30,6 +30,16 @@ FakeContainer.prototype.removeChild = function(c) {
   var i = this.children.indexOf(c);
   if (i >= 0) { this.children.splice(i, 1); }
 };
+FakeContainer.prototype.getChildIndex = function(c) { return this.children.indexOf(c); };
+FakeContainer.prototype.setChildIndex = function(c, index) {
+  var i = this.children.indexOf(c);
+  if (i < 0) { return; }
+  this.children.splice(i, 1);
+  this.children.splice(index, 0, c);
+};
+Object.defineProperty(FakeContainer.prototype, 'numChildren', {
+  get: function() { return this.children.length; },
+});
 function FakeStage() { this.x = 0; this.y = 0; this.scaleX = 1; this.scaleY = 1; }
 FakeStage.prototype.addChild = function() {};
 
@@ -94,6 +104,19 @@ function cubeMsg(ns, id, action, lifetimeSec) {
     ns: ns, id: id, type: 1, action: action,
     pose: idPose, scale: unitScale, color: white,
     lifetime: { sec: lifetimeSec || 0, nanosec: 0 },
+  };
+}
+
+function typedMsg(type, ns, id, action) {
+  return {
+    header: { frame_id: 'map' },
+    ns: ns, id: id, type: type, action: action || 0,
+    pose: idPose, scale: unitScale, color: white,
+    lifetime: { sec: 0, nanosec: 0 },
+    points: type === 4 || type === 5
+      ? [{ x: 0, y: 0, z: 0 }, { x: 1, y: 0, z: 0 }]
+      : [],
+    text: type === 9 ? 'label' : '',
   };
 }
 
@@ -333,5 +356,106 @@ describe('ROS2D.MarkerArrayClient', () => {
     topic.__emit({ markers: [] });
     expect(root.children).toHaveLength(0);
     expect(onChange).toHaveBeenCalledOnce();
+  });
+
+  // ─── rvizOrder ────────────────────────────────────────────────────────
+  // RViz2 implicitly renders TEXT_VIEW_FACING (type 9) above geometry,
+  // and LINE_STRIP / LINE_LIST (types 4, 5) below it. The opt-in
+  // rvizOrder option mirrors that ordering inside rootObject.children.
+
+  it('rvizOrder default (false): publish order is preserved unchanged', () => {
+    const root = new FakeContainer();
+    const client = new MarkerArrayClient({ ros: new fake.ROSLIB.Ros(), rootObject: root });
+    const topic = fake.topics[fake.topics.length - 1];
+    topic.__emit({
+      markers: [
+        typedMsg(9, 'labels', 1), // TEXT first
+        typedMsg(0, 'shapes', 2), // ARROW after
+      ],
+    });
+    // Without opt-in, ARROW (added second) is on top of TEXT.
+    const last = root.children[root.children.length - 1];
+    expect(client.markers['shapes:2'].obj).toBe(last);
+    expect(client.rvizOrder).toBe(false);
+  });
+
+  it('rvizOrder=true sorts children: lines (bottom) → geometry → text (top)', () => {
+    const root = new FakeContainer();
+    const client = new MarkerArrayClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: root, rvizOrder: true,
+    });
+    const topic = fake.topics[fake.topics.length - 1];
+    topic.__emit({
+      markers: [
+        typedMsg(9, 'labels', 1), // TEXT  → top
+        typedMsg(0, 'shapes', 2), // ARROW → middle
+        typedMsg(4, 'edges', 3),  // LINE_STRIP → bottom
+      ],
+    });
+    expect(client.rvizOrder).toBe(true);
+    const ordered = root.children;
+    expect(ordered).toHaveLength(3);
+    // Bottom (index 0) = LINE_STRIP, top (last) = TEXT.
+    expect(ordered[0]).toBe(client.markers['edges:3'].obj);
+    expect(ordered[1]).toBe(client.markers['shapes:2'].obj);
+    expect(ordered[2]).toBe(client.markers['labels:1'].obj);
+  });
+
+  it('rvizOrder=true keeps TEXT on top after MODIFY of the same ns:id', () => {
+    const root = new FakeContainer();
+    const client = new MarkerArrayClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: root, rvizOrder: true,
+    });
+    const topic = fake.topics[fake.topics.length - 1];
+    topic.__emit({
+      markers: [
+        typedMsg(9, 'labels', 1),
+        typedMsg(0, 'shapes', 2),
+      ],
+    });
+    expect(root.children[root.children.length - 1])
+      .toBe(client.markers['labels:1'].obj);
+    // MODIFY the ARROW — TEXT must remain on top.
+    topic.__emit({ markers: [typedMsg(0, 'shapes', 2)] });
+    expect(root.children[root.children.length - 1])
+      .toBe(client.markers['labels:1'].obj);
+  });
+
+  it('rvizOrder=true preserves publish (insertion) order within the same tier', () => {
+    const root = new FakeContainer();
+    const client = new MarkerArrayClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: root, rvizOrder: true,
+    });
+    const topic = fake.topics[fake.topics.length - 1];
+    topic.__emit({
+      markers: [
+        typedMsg(9, 'labels', 1), // TEXT A first
+        typedMsg(9, 'labels', 2), // TEXT B second → must end on top
+      ],
+    });
+    expect(root.children[root.children.length - 2])
+      .toBe(client.markers['labels:1'].obj); // A below B
+    expect(root.children[root.children.length - 1])
+      .toBe(client.markers['labels:2'].obj); // B on top
+  });
+
+  it('rvizOrder=true re-applies tiers after DELETEALL + new ADD batch', () => {
+    const root = new FakeContainer();
+    const client = new MarkerArrayClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: root, rvizOrder: true,
+    });
+    const topic = fake.topics[fake.topics.length - 1];
+    topic.__emit({ markers: [typedMsg(9, 'labels', 1), typedMsg(4, 'edges', 2)] });
+    // DELETEALL then a fresh batch in arbitrary order:
+    topic.__emit({
+      markers: [
+        cubeMsg('', 0, 3),       // DELETEALL
+        typedMsg(9, 'labels', 5), // TEXT
+        typedMsg(4, 'edges', 6),  // LINE_STRIP
+      ],
+    });
+    expect(root.children).toHaveLength(2);
+    expect(root.children[0]).toBe(client.markers['edges:6'].obj);
+    expect(root.children[1]).toBe(client.markers['labels:5'].obj);
   });
 });

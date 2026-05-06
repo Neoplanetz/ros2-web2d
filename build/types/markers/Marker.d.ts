@@ -27,6 +27,7 @@ export class Marker extends createjs.Container {
         message: any;
         applyPose?: boolean;
     });
+    markerType: any;
     x: any;
     /**
      * Convert a ROS color {r, g, b, a} (0..1 floats) to a createjs CSS color string.

@@ -23,15 +23,24 @@ export class MarkerArrayClient extends EventEmitter<string | symbol, any> {
      *   * tfClient (optional) - ROSLIB.TFClient or ROSLIB.ROS2TFClient; when
      *       present, each marker is wrapped in a ROS2D.SceneNode keyed on
      *       its own header.frame_id.
+     *   * rvizOrder (optional, default false) - when true, marker children of
+     *       the rootObject are reordered after each message so that
+     *       LINE_STRIP / LINE_LIST (types 4, 5) render below all other
+     *       geometry markers, and TEXT_VIEW_FACING (type 9) renders above
+     *       them - matching RViz2's implicit render order. Within each
+     *       tier the publish (insertion) order is preserved.
      */
     constructor(options: any);
     topicName: any;
     rootObject: any;
     tfClient: any;
+    rvizOrder: boolean;
     markers: {};
     rosTopic: import("roslib").Topic<unknown>;
     processMessage(message: any): void;
     _handleMarker(m: any): void;
+    _typeRank(type: any): 2 | 1 | 0;
+    _applyRvizOrder(): void;
     _removeMarker(key: any): void;
     _clearAll(): void;
     unsubscribe(): void;

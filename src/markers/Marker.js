@@ -30,6 +30,10 @@ ROS2D.Marker = function(options) {
   if (!message) {
     return;
   }
+  // Preserve the original visualization_msgs/Marker.type so callers
+  // (e.g. MarkerArrayClient implementing render-order rules) can
+  // introspect the marker without re-parsing the source message.
+  this.markerType = message.type;
 
   var color = message.color || { r: 1, g: 1, b: 1, a: 1 };
   var scale = message.scale || { x: 1, y: 1, z: 1 };

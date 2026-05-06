@@ -87,6 +87,11 @@ describe('ROS2D.Marker', () => {
     expect(m instanceof FakeContainer).toBe(true);
   });
 
+  it('exposes the original visualization_msgs/Marker.type as markerType', () => {
+    const m = new Marker({ message: { type: 9, pose: idPose, scale: { x: 1, y: 1, z: 0.5 }, color: whiteOpaque, text: 'hi' } });
+    expect(m.markerType).toBe(9);
+  });
+
   it('maps pose.position to .x/.y (Y is negated to flip ROS→canvas) and uses quaternionToGlobalTheta for rotation', () => {
     const m = new Marker({
       message: {
