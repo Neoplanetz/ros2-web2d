@@ -26601,7 +26601,7 @@ var createjsExports = requireCreatejs();
 
 // import * as createjs from 'createjs-module';
 
-var REVISION = '1.7.2';
+var REVISION = '1.7.3';
 
 // convert the given global Stage coordinates to ROS coordinates
 createjsExports.Stage.prototype.globalToRos = function(x, y) {
@@ -29290,11 +29290,10 @@ var MarkerArrayClient = /*@__PURE__*/(function (EventEmitter) {
   // geometry markers, which render below text markers - matching RViz2's
   // implicit render order. Within each tier, current sibling order is
   // preserved (so publish/insertion order survives across re-applications).
-  // Children of rootObject we don't own are not reshuffled relative to
-  // each other; they end up below our reattached set because every owned
-  // child is moved to numChildren-1.
+  // Children of rootObject we don't own are left in their existing slots.
   MarkerArrayClient.prototype._applyRvizOrder = function _applyRvizOrder () {
     var buckets = [[], [], []];
+    var slots = [];
     for (var k in this.markers) {
       if (!Object.prototype.hasOwnProperty.call(this.markers, k)) {
         continue;
@@ -29308,17 +29307,25 @@ var MarkerArrayClient = /*@__PURE__*/(function (EventEmitter) {
         continue;
       }
       buckets[this._typeRank(entry.type)].push({ obj: entry.obj, idx: idx });
+      slots.push(idx);
     }
     for (var t = 0; t < buckets.length; t++) {
       buckets[t].sort(function(a, b) { return a.idx - b.idx; });
     }
-    // Move bottom-tier first, then middle, then top. setChildIndex to
-    // numChildren-1 places the moved child at the end (= drawn last =
-    // visually on top), so the last-moved tier ends up on top.
+    slots.sort(function(a, b) { return a - b; });
+
+    var ordered = [];
     for (var t2 = 0; t2 < buckets.length; t2++) {
       for (var j = 0; j < buckets[t2].length; j++) {
-        this.rootObject.setChildIndex(buckets[t2][j].obj, this.rootObject.numChildren - 1);
+        ordered.push(buckets[t2][j].obj);
       }
+    }
+
+    // Fill only the sibling slots already occupied by our markers. Moving
+    // from high target index to low target index keeps unrelated children
+    // anchored while setChildIndex mutates the display list.
+    for (var s = ordered.length - 1; s >= 0; s--) {
+      this.rootObject.setChildIndex(ordered[s], slots[s]);
     }
   };
   MarkerArrayClient.prototype._removeMarker = function _removeMarker (key) {

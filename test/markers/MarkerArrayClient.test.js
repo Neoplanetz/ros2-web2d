@@ -458,4 +458,29 @@ describe('ROS2D.MarkerArrayClient', () => {
     expect(root.children[0]).toBe(client.markers['edges:6'].obj);
     expect(root.children[1]).toBe(client.markers['labels:5'].obj);
   });
+
+  it('rvizOrder=true preserves unrelated rootObject children above marker slots', () => {
+    const root = new FakeContainer();
+    const client = new MarkerArrayClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: root, rvizOrder: true,
+    });
+    const topic = fake.topics[fake.topics.length - 1];
+    topic.__emit({
+      markers: [
+        typedMsg(9, 'labels', 1),
+        typedMsg(0, 'shapes', 2),
+        typedMsg(4, 'edges', 3),
+      ],
+    });
+    const overlay = { kind: 'external-overlay' };
+    root.addChild(overlay);
+
+    topic.__emit({ markers: [] });
+
+    expect(root.children).toHaveLength(4);
+    expect(root.children[0]).toBe(client.markers['edges:3'].obj);
+    expect(root.children[1]).toBe(client.markers['shapes:2'].obj);
+    expect(root.children[2]).toBe(client.markers['labels:1'].obj);
+    expect(root.children[3]).toBe(overlay);
+  });
 });

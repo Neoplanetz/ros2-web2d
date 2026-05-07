@@ -3,6 +3,31 @@
 All notable changes to this project are documented here.
 The project follows [Semantic Versioning](https://semver.org/).
 
+## [1.7.3] — 2026-05-07
+
+### Fixed
+
+- **`MarkerArrayClient` `rvizOrder` no longer forces unrelated
+  `rootObject` children below marker tiers.** v1.7.2's
+  `_applyRvizOrder` reattached every owned marker child to the end
+  of the display list (`setChildIndex(obj, numChildren - 1)`), which
+  correctly produced LINE → geometry → TEXT order among markers but
+  inadvertently moved every consumer-added child of the same
+  `rootObject` (overlays, custom layers, etc.) below the marker
+  set. The reorder now operates only within the sibling slots
+  already occupied by owned markers — unrelated children keep
+  their absolute child-index — and `setChildIndex` is invoked from
+  the highest target slot to the lowest so display-list mutations
+  during the pass don't shift unrelated siblings either. Internal
+  ordering among markers (LINE / geometry / TEXT, with publish
+  order preserved within each tier) is unchanged.
+
+  Effect: callers whose `MarkerArrayClient` shares its `rootObject`
+  with non-marker createjs children — and who opted into
+  `rvizOrder: true` — will now see those overlays render at their
+  original z-order again. Callers with a marker-only `rootObject`
+  see no behavioral change.
+
 ## [1.7.2] — 2026-05-06
 
 ### Added
