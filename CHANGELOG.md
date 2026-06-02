@@ -3,6 +3,20 @@
 All notable changes to this project are documented here.
 The project follows [Semantic Versioning](https://semver.org/).
 
+## [1.8.0] — 2026-06-03
+
+### Added
+
+- **`OccupancyGridClient.setColorizer(colorizer)`** — re-render the current
+  map with a new colorizer **without re-subscribing** to the topic. The last
+  received message is cached (`lastMessage`) and re-colorized in place; the
+  ROS topic subscription is left untouched, so a colorizer/theme change can no
+  longer trigger subscribe/unsubscribe churn on the bridge (a known trigger of
+  rosbridge/rclpy segfaults under entity teardown). If no message has arrived
+  yet, the colorizer is stored and applied to the next one. Internal render +
+  scene-swap logic was extracted to a private `_renderGrid(message)`; the
+  existing subscribe path is behavior-neutral.
+
 ## [1.7.3] — 2026-05-07
 
 ### Fixed

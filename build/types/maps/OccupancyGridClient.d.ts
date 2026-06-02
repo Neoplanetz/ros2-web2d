@@ -32,13 +32,37 @@ export class OccupancyGridClient extends EventEmitter<string | symbol, any> {
     rootObject: any;
     tfClient: any;
     colorizer: any;
-    node: any;
+    node: SceneNode;
+    lastMessage: any;
     currentGrid: createjs.Shape;
     rosTopic: import("roslib").Topic<unknown>;
+    /**
+     * Build a grid Shape from a message + the current colorizer and swap it into
+     * the scene (under the TF SceneNode when a tfClient is set, otherwise directly
+     * under rootObject), preserving child order. Caches the message on
+     * `this.lastMessage` so setColorizer() can re-render later without a new
+     * subscription. Does NOT emit 'change' itself — the caller decides whether a
+     * re-fit is warranted (the subscribe path emits; setColorizer does not).
+     * @private
+     */
+    private _renderGrid;
+    /**
+     * Re-render the current map with a new colorizer WITHOUT re-subscribing to the
+     * topic. Intended for theme switches: the cached last message is re-colorized
+     * and the grid Shape swapped in place; the ROS topic subscription is left
+     * untouched, so it cannot trigger subscribe/unsubscribe churn on the bridge.
+     * Does NOT emit 'change' — a recolor keeps the same map dimensions, so the
+     * view is preserved (no re-fit); the Viewer's createjs Ticker repaints the
+     * swapped grid on the next frame. If no message has arrived yet the colorizer
+     * is stored and applied to the next one.
+     * @param colorizer - 'map' | 'costmap' | function(value) -> [r, g, b, a]
+     */
+    setColorizer(colorizer: any): void;
     /**
      * Detach from the map topic and drop any SceneNode wrap.
      */
     unsubscribe(): void;
 }
 import EventEmitter from 'eventemitter3';
+import { SceneNode } from '../visualization/SceneNode';
 import * as createjs from 'createjs-module';

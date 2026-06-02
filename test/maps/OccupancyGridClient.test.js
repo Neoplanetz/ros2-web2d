@@ -262,3 +262,63 @@ describe('OccupancyGridClient (baseline, v1 API)', () => {
     expect(client.node).toBeFalsy();
   });
 });
+
+describe('OccupancyGridClient.setColorizer (in-place recolor, no re-subscribe)', () => {
+  beforeEach(() => {
+    fake.topics.length = 0;
+  });
+
+  function fakeMapMsg() {
+    return {
+      header: { frame_id: 'map' },
+      info: {
+        width: 10, height: 10, resolution: 0.1,
+        origin: {
+          position: { x: 0, y: 0, z: 0 },
+          orientation: { x: 0, y: 0, z: 0, w: 1 },
+        },
+      },
+      data: new Array(100).fill(0),
+    };
+  }
+
+  it('re-renders the current grid with the new colorizer in place, without a new subscription or a re-fit', () => {
+    const root = new FakeContainer();
+    const client = new globalThis.ROS2D.OccupancyGridClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: root, colorizer: 'map', continuous: true,
+    });
+    const topic = fake.topics[fake.topics.length - 1];
+    topic.__emit(fakeMapMsg());
+    expect(client.currentGrid.colorizer).toBe('map');
+    const topicsBefore = fake.topics.length;
+
+    const onChange = vi.fn();
+    client.on('change', onChange);
+    const customFn = (value) => [value, 0, 0, 255];
+    client.setColorizer(customFn);
+
+    expect(client.colorizer).toBe(customFn);
+    // A fresh grid was built from the cached message with the new colorizer.
+    expect(client.currentGrid.colorizer).toBe(customFn);
+    // setColorizer must NOT emit 'change' — a recolor keeps the same map
+    // dimensions, so consumers must not re-fit / reset the view (the Viewer's
+    // Ticker repaints the swapped grid on the next frame).
+    expect(onChange).not.toHaveBeenCalled();
+    // The ROS topic subscription is untouched — no new Topic constructed.
+    expect(fake.topics.length).toBe(topicsBefore);
+  });
+
+  it('stores the colorizer for the next message when called before any message arrives', () => {
+    const root = new FakeContainer();
+    const client = new globalThis.ROS2D.OccupancyGridClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: root, colorizer: 'map', continuous: true,
+    });
+    const customFn = (value) => [0, value, 0, 255];
+    // No message yet → must not throw, just stores the colorizer.
+    client.setColorizer(customFn);
+    expect(client.colorizer).toBe(customFn);
+    const topic = fake.topics[fake.topics.length - 1];
+    topic.__emit(fakeMapMsg());
+    expect(client.currentGrid.colorizer).toBe(customFn);
+  });
+});
