@@ -26601,7 +26601,7 @@ var createjsExports = requireCreatejs();
 
 // import * as createjs from 'createjs-module';
 
-var REVISION = '1.8.0';
+var REVISION = '1.8.1';
 
 // convert the given global Stage coordinates to ROS coordinates
 createjsExports.Stage.prototype.globalToRos = function(x, y) {
@@ -27886,6 +27886,10 @@ var OccupancyGridClient = /*@__PURE__*/(function (EventEmitter) {
     // Last received message, cached so setColorizer() can re-render the current
     // map without re-subscribing to the topic.
     this.lastMessage = null;
+    // Set by the public unsubscribe() (consumer teardown). Once disposed,
+    // setColorizer() must not re-render — otherwise a late recolor would
+    // re-create a detached TF SceneNode and re-attach a display child.
+    this.disposed = false;
 
     // current grid that is displayed
     // create an empty shape to start with, so that the order remains correct.
@@ -27976,19 +27980,25 @@ var OccupancyGridClient = /*@__PURE__*/(function (EventEmitter) {
    * Does NOT emit 'change' — a recolor keeps the same map dimensions, so the
    * view is preserved (no re-fit); the Viewer's createjs Ticker repaints the
    * swapped grid on the next frame. If no message has arrived yet the colorizer
-   * is stored and applied to the next one.
+   * is stored and applied to the next one. After the client has been torn down
+   * via unsubscribe() this is a no-op (it will not resurrect a detached grid /
+   * TF SceneNode).
    * @param colorizer - 'map' | 'costmap' | function(value) -> [r, g, b, a]
    */
   OccupancyGridClient.prototype.setColorizer = function setColorizer (colorizer) {
     this.colorizer = colorizer;
-    if (this.lastMessage) {
+    if (this.lastMessage && !this.disposed) {
       this._renderGrid(this.lastMessage);
     }
   };
   /**
-   * Detach from the map topic and drop any SceneNode wrap.
+   * Detach from the map topic and drop any SceneNode wrap. Terminal: marks the
+   * client disposed so a later setColorizer() cannot re-render / resurrect the
+   * grid. (The internal non-continuous auto-unsubscribe calls rosTopic.unsubscribe
+   * directly, NOT this method, so recolor-after-first-message still works.)
    */
   OccupancyGridClient.prototype.unsubscribe = function unsubscribe () {
+    this.disposed = true;
     if (this.rosTopic) { this.rosTopic.unsubscribe(); }
     if (this.node) {
       this.node.unsubscribe();

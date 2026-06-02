@@ -34,6 +34,7 @@ export class OccupancyGridClient extends EventEmitter<string | symbol, any> {
     colorizer: any;
     node: SceneNode;
     lastMessage: any;
+    disposed: boolean;
     currentGrid: createjs.Shape;
     rosTopic: import("roslib").Topic<unknown>;
     /**
@@ -54,12 +55,17 @@ export class OccupancyGridClient extends EventEmitter<string | symbol, any> {
      * Does NOT emit 'change' — a recolor keeps the same map dimensions, so the
      * view is preserved (no re-fit); the Viewer's createjs Ticker repaints the
      * swapped grid on the next frame. If no message has arrived yet the colorizer
-     * is stored and applied to the next one.
+     * is stored and applied to the next one. After the client has been torn down
+     * via unsubscribe() this is a no-op (it will not resurrect a detached grid /
+     * TF SceneNode).
      * @param colorizer - 'map' | 'costmap' | function(value) -> [r, g, b, a]
      */
     setColorizer(colorizer: any): void;
     /**
-     * Detach from the map topic and drop any SceneNode wrap.
+     * Detach from the map topic and drop any SceneNode wrap. Terminal: marks the
+     * client disposed so a later setColorizer() cannot re-render / resurrect the
+     * grid. (The internal non-continuous auto-unsubscribe calls rosTopic.unsubscribe
+     * directly, NOT this method, so recolor-after-first-message still works.)
      */
     unsubscribe(): void;
 }

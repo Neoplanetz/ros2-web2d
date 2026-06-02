@@ -294,6 +294,10 @@ describe('OccupancyGridClient.setColorizer (in-place recolor, no re-subscribe)',
 
     const onChange = vi.fn();
     client.on('change', onChange);
+    // Guard the core contract directly: the existing topic is neither
+    // re-subscribed nor unsubscribed by a recolor.
+    const subSpy = vi.spyOn(topic, 'subscribe');
+    const unsubSpy = vi.spyOn(topic, 'unsubscribe');
     const customFn = (value) => [value, 0, 0, 255];
     client.setColorizer(customFn);
 
@@ -304,8 +308,33 @@ describe('OccupancyGridClient.setColorizer (in-place recolor, no re-subscribe)',
     // dimensions, so consumers must not re-fit / reset the view (the Viewer's
     // Ticker repaints the swapped grid on the next frame).
     expect(onChange).not.toHaveBeenCalled();
-    // The ROS topic subscription is untouched — no new Topic constructed.
+    // The ROS topic subscription is untouched — no new Topic constructed AND
+    // no subscribe/unsubscribe on the existing topic.
     expect(fake.topics.length).toBe(topicsBefore);
+    expect(subSpy).not.toHaveBeenCalled();
+    expect(unsubSpy).not.toHaveBeenCalled();
+  });
+
+  it('is a no-op after unsubscribe() — does not resurrect a detached TF SceneNode', () => {
+    const tf = new fake.FakeTFClient({ fixedFrame: 'map' });
+    const root = new FakeContainer();
+    const client = new globalThis.ROS2D.OccupancyGridClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: root, tfClient: tf, continuous: true,
+    });
+    const topic = fake.topics[fake.topics.length - 1];
+    topic.__emit(fakeMapMsg()); // frame_id 'map'
+    expect(client.node).toBeInstanceOf(globalThis.ROS2D.SceneNode);
+    expect(tf.__subscriberCount('map')).toBe(1);
+
+    client.unsubscribe(); // consumer teardown → disposed, node dropped
+    expect(client.node).toBeNull();
+    expect(tf.__subscriberCount('map')).toBe(0);
+
+    // A late theme/colorizer change after teardown must NOT re-create the
+    // SceneNode or re-subscribe to TF.
+    client.setColorizer((value) => [value, 0, 0, 255]);
+    expect(client.node).toBeNull();
+    expect(tf.__subscriberCount('map')).toBe(0);
   });
 
   it('stores the colorizer for the next message when called before any message arrives', () => {
