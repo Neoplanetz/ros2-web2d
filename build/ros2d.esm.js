@@ -29228,11 +29228,18 @@ var MarkerArrayClient = /*@__PURE__*/(function (EventEmitter) {
     // key = ns + ':' + id  ->  { obj: child, node: SceneNode|null, timer: timeoutId|null, type: int }
     this.markers = {};
 
-    this.rosTopic = _makeTopic(ros, this.topicName, 'visualization_msgs/MarkerArray', options);
-
-    this.rosTopic.subscribe(function(message) {
-      that.processMessage(message);
-    });
+    // options.subscribe (default true). When false, do NOT create/subscribe the
+    // ROSLIB.Topic — the client renders only messages fed via processMessage().
+    // Used by render-only consumers that own the subscription elsewhere, avoiding
+    // a construct-time subscribe→unsubscribe churn blip on the bridge.
+    if (options.subscribe !== false) {
+      this.rosTopic = _makeTopic(ros, this.topicName, 'visualization_msgs/MarkerArray', options);
+      this.rosTopic.subscribe(function(message) {
+        that.processMessage(message);
+      });
+    } else {
+      this.rosTopic = null;
+    }
   }
 
   if ( EventEmitter ) MarkerArrayClient.__proto__ = EventEmitter;

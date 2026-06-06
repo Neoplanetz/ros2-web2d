@@ -29,6 +29,9 @@ export class MarkerArrayClient extends EventEmitter<string | symbol, any> {
      *       geometry markers, and TEXT_VIEW_FACING (type 9) renders above
      *       them - matching RViz2's implicit render order. Within each
      *       tier the publish (insertion) order is preserved.
+     *   * subscribe (optional, default true) - when false, the client does not
+     *       create or subscribe a ROSLIB.Topic; render it via processMessage()
+     *       instead. For render-only consumers that own the subscription elsewhere.
      */
     constructor(options: any);
     topicName: any;

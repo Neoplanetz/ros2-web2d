@@ -28,6 +28,9 @@
  *       geometry markers, and TEXT_VIEW_FACING (type 9) renders above
  *       them - matching RViz2's implicit render order. Within each
  *       tier the publish (insertion) order is preserved.
+ *   * subscribe (optional, default true) - when false, the client does not
+ *       create or subscribe a ROSLIB.Topic; render it via processMessage()
+ *       instead. For render-only consumers that own the subscription elsewhere.
  */
 ROS2D.MarkerArrayClient = function(options) {
   EventEmitter.call(this);
@@ -42,11 +45,18 @@ ROS2D.MarkerArrayClient = function(options) {
   // key = ns + ':' + id  ->  { obj: child, node: SceneNode|null, timer: timeoutId|null, type: int }
   this.markers = {};
 
-  this.rosTopic = ROS2D._makeTopic(ros, this.topicName, 'visualization_msgs/MarkerArray', options);
-
-  this.rosTopic.subscribe(function(message) {
-    that.processMessage(message);
-  });
+  // options.subscribe (default true). When false, do NOT create/subscribe the
+  // ROSLIB.Topic — the client renders only messages fed via processMessage().
+  // Used by render-only consumers that own the subscription elsewhere, avoiding
+  // a construct-time subscribe→unsubscribe churn blip on the bridge.
+  if (options.subscribe !== false) {
+    this.rosTopic = ROS2D._makeTopic(ros, this.topicName, 'visualization_msgs/MarkerArray', options);
+    this.rosTopic.subscribe(function(message) {
+      that.processMessage(message);
+    });
+  } else {
+    this.rosTopic = null;
+  }
 };
 
 ROS2D.MarkerArrayClient.prototype.processMessage = function(message) {

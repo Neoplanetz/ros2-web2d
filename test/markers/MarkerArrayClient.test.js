@@ -459,6 +459,48 @@ describe('ROS2D.MarkerArrayClient', () => {
     expect(root.children[1]).toBe(client.markers['labels:5'].obj);
   });
 
+  // ─── subscribe:false (render-only) ────────────────────────────────────
+  // When subscribe:false is set the client must NOT create a ROSLIB.Topic
+  // or call subscribe, but must still render markers via processMessage().
+
+  it('subscribe:false does not create a ROSLIB.Topic or call subscribe', () => {
+    const topicsBefore = fake.topics.length;
+    const client = new MarkerArrayClient({
+      ros: new fake.ROSLIB.Ros(),
+      rootObject: new FakeContainer(),
+      subscribe: false,
+    });
+    // No new topic should have been pushed to the fake topic list.
+    expect(fake.topics.length).toBe(topicsBefore);
+    // rosTopic must be null (not an object with _subs).
+    expect(client.rosTopic).toBeNull();
+  });
+
+  it('subscribe:false: processMessage() still renders markers', () => {
+    const root = new FakeContainer();
+    const client = new MarkerArrayClient({
+      ros: new fake.ROSLIB.Ros(),
+      rootObject: root,
+      subscribe: false,
+    });
+    client.processMessage({ markers: [cubeMsg('a', 1, 0)] });
+    expect(root.children).toHaveLength(1);
+    expect(client.markers['a:1']).toBeDefined();
+  });
+
+  it('subscribe:false: unsubscribe() does not throw when rosTopic is null', () => {
+    const root = new FakeContainer();
+    const client = new MarkerArrayClient({
+      ros: new fake.ROSLIB.Ros(),
+      rootObject: root,
+      subscribe: false,
+    });
+    client.processMessage({ markers: [cubeMsg('a', 1, 0)] });
+    // Should complete without error and clear rendered markers.
+    expect(() => client.unsubscribe()).not.toThrow();
+    expect(root.children).toHaveLength(0);
+  });
+
   it('rvizOrder=true preserves unrelated rootObject children above marker slots', () => {
     const root = new FakeContainer();
     const client = new MarkerArrayClient({
