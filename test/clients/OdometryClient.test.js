@@ -201,4 +201,38 @@ describe('ROS2D.OdometryClient', () => {
     expect(client.marker.y).toBe(-3);
     expect(client.node).toBeFalsy();
   });
+
+  // ─── subscribe:false (render-only / feed mode) ────────────────────────
+
+  it('subscribe:false does not create a ROSLIB.Topic and sets rosTopic to null', () => {
+    const topicsBefore = fake.topics.length;
+    const c = new OdometryClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: new FakeContainer(), subscribe: false,
+    });
+    expect(fake.topics.length).toBe(topicsBefore);
+    expect(c.rosTopic).toBeNull();
+  });
+
+  it('subscribe:false: processMessage renders identically to the subscribe path and emits change', () => {
+    const c = new OdometryClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: new FakeContainer(), subscribe: false,
+    });
+    const onChange = vi.fn();
+    c.on('change', onChange);
+    c.processMessage(odom(2, 4));
+    expect(c.marker.x).toBe(2);
+    expect(c.marker.y).toBe(-4);
+    expect(c.marker.visible).toBe(true);
+    expect(onChange).toHaveBeenCalledTimes(1);
+  });
+
+  it('subscribe:false: unsubscribe() does not throw when rosTopic is null', () => {
+    const root = new FakeContainer();
+    const c = new OdometryClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: root, subscribe: false,
+    });
+    c.processMessage(odom(2, 4));
+    expect(() => c.unsubscribe()).not.toThrow();
+    expect(root.children).not.toContain(c.marker);
+  });
 });

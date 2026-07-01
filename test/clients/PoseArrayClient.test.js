@@ -183,4 +183,39 @@ describe('ROS2D.PoseArrayClient', () => {
     client.unsubscribe();
     expect(tf.__subscriberCount('map')).toBe(0);
   });
+
+  // ─── subscribe:false (render-only / feed mode) ────────────────────────
+
+  it('subscribe:false does not create a ROSLIB.Topic and sets rosTopic to null', () => {
+    const topicsBefore = fake.topics.length;
+    const c = new PoseArrayClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: new FakeContainer(), subscribe: false,
+    });
+    expect(fake.topics.length).toBe(topicsBefore);
+    expect(c.rosTopic).toBeNull();
+  });
+
+  it('subscribe:false: processMessage renders identically to the subscribe path and emits change', () => {
+    const c = new PoseArrayClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: new FakeContainer(), subscribe: false,
+    });
+    const onChange = vi.fn();
+    c.on('change', onChange);
+    c.processMessage(pa([pose(0, 0), pose(1, 2)]));
+    expect(c.container.children).toHaveLength(2);
+    expect(c.container.children[1].x).toBe(1);
+    expect(c.container.children[1].y).toBe(-2);
+    expect(onChange).toHaveBeenCalledTimes(1);
+  });
+
+  it('subscribe:false: unsubscribe() does not throw when rosTopic is null', () => {
+    const root = new FakeContainer();
+    const c = new PoseArrayClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: root, subscribe: false,
+    });
+    c.processMessage(pa([pose(0, 0)]));
+    expect(() => c.unsubscribe()).not.toThrow();
+    expect(c.container.children).toHaveLength(0);
+    expect(root.children).not.toContain(c.container);
+  });
 });

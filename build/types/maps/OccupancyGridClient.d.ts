@@ -26,6 +26,10 @@ export class OccupancyGridClient extends EventEmitter<string | symbol, any> {
      *       'costmap' (or a custom function) to render nav2 costmap topics
      *       such as /local_costmap/costmap with an inflation gradient
      *       instead of grayscale.
+     *   * subscribe (optional, default true) - when false, the client does not
+     *       create or subscribe a ROSLIB.Topic; feed it via processMessage()
+     *       instead. For render-only consumers that own the subscription
+     *       elsewhere (tfClient + colorizer still apply in this mode).
      */
     constructor(options: any);
     continuous: any;
@@ -37,6 +41,16 @@ export class OccupancyGridClient extends EventEmitter<string | symbol, any> {
     disposed: boolean;
     currentGrid: createjs.Shape;
     rosTopic: import("roslib").Topic<unknown>;
+    /**
+     * Render a single nav_msgs/OccupancyGrid message: build + swap the grid Shape
+     * (under the TF SceneNode when a tfClient is set) and emit 'change' so
+     * consumers can re-fit. In the default (non-continuous) subscribe mode the
+     * topic auto-unsubscribes after the first message; that teardown is guarded on
+     * rosTopic so render-only consumers (subscribe:false) — which have no topic and
+     * feed messages via their own transport — do not dereference null. This is the
+     * sole render path; the subscribe callback simply forwards to it.
+     */
+    processMessage(message: any): void;
     /**
      * Build a grid Shape from a message + the current colorizer and swap it into
      * the scene (under the TF SceneNode when a tfClient is set, otherwise directly

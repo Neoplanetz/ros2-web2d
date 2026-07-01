@@ -26,6 +26,10 @@
  *       'costmap' (or a custom function) to render nav2 costmap topics
  *       such as /local_costmap/costmap with an inflation gradient
  *       instead of grayscale.
+ *   * subscribe (optional, default true) - when false, the client does not
+ *       create or subscribe a ROSLIB.Topic; feed it via processMessage()
+ *       instead. For render-only consumers that own the subscription
+ *       elsewhere (tfClient + colorizer still apply in this mode).
  */
 ROS2D.OccupancyGridClient = function(options) {
   EventEmitter.call(this);
@@ -55,21 +59,41 @@ ROS2D.OccupancyGridClient = function(options) {
     this.rootObject.addChild(new ROS2D.Grid({size:1}));
   }
 
-  // subscribe to the topic
-  this.rosTopic = ROS2D._makeTopic(ros, topic, 'nav_msgs/OccupancyGrid', options);
+  // subscribe to the topic. options.subscribe (default true) — when false, do
+  // NOT create/subscribe the ROSLIB.Topic; the client renders only messages fed
+  // via processMessage() (render-only consumers that own the subscription
+  // elsewhere), avoiding a construct-time subscribe→unsubscribe churn blip.
+  if (options.subscribe !== false) {
+    this.rosTopic = ROS2D._makeTopic(ros, topic, 'nav_msgs/OccupancyGrid', options);
+    this.rosTopic.subscribe(function(message) {
+      that.processMessage(message);
+    });
+  } else {
+    this.rosTopic = null;
+  }
+};
 
-  this.rosTopic.subscribe(function(message) {
-    that._renderGrid(message);
-    // A fresh message may change map dimensions/origin, so emit 'change' to let
-    // consumers re-fit the view. (setColorizer() deliberately does NOT emit —
-    // a recolor keeps the same dimensions, so the view must not be reset.)
-    that.emit('change');
+/**
+ * Render a single nav_msgs/OccupancyGrid message: build + swap the grid Shape
+ * (under the TF SceneNode when a tfClient is set) and emit 'change' so
+ * consumers can re-fit. In the default (non-continuous) subscribe mode the
+ * topic auto-unsubscribes after the first message; that teardown is guarded on
+ * rosTopic so render-only consumers (subscribe:false) — which have no topic and
+ * feed messages via their own transport — do not dereference null. This is the
+ * sole render path; the subscribe callback simply forwards to it.
+ */
+ROS2D.OccupancyGridClient.prototype.processMessage = function(message) {
+  this._renderGrid(message);
+  // A fresh message may change map dimensions/origin, so emit 'change' to let
+  // consumers re-fit the view. (setColorizer() deliberately does NOT emit —
+  // a recolor keeps the same dimensions, so the view must not be reset.)
+  this.emit('change');
 
-    // check if we should unsubscribe
-    if (!that.continuous) {
-      that.rosTopic.unsubscribe();
-    }
-  });
+  // check if we should unsubscribe. Guarded on rosTopic so feed-mode
+  // (subscribe:false) consumers, which have no topic, don't dereference null.
+  if (!this.continuous && this.rosTopic) {
+    this.rosTopic.unsubscribe();
+  }
 };
 
 /**
