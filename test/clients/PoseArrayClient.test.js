@@ -218,4 +218,40 @@ describe('ROS2D.PoseArrayClient', () => {
     expect(c.container.children).toHaveLength(0);
     expect(root.children).not.toContain(c.container);
   });
+
+  it('subscribe:false + tfClient: processMessage wraps the container in a SceneNode', () => {
+    const tf = new fake.FakeTFClient({ fixedFrame: 'map' });
+    const root = new FakeContainer();
+    const c = new PoseArrayClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: root, tfClient: tf, subscribe: false,
+    });
+    expect(c.rosTopic).toBeNull();
+    c.processMessage({
+      header: { frame_id: 'map' },
+      poses: [{ position: { x: 1, y: 2, z: 0 }, orientation: { x: 0, y: 0, z: 0, w: 1 } }],
+    });
+    expect(c.node).toBeInstanceOf(globalThis.ROS2D.SceneNode);
+    // Inside the SceneNode container the arrow keeps ROS y (not negated).
+    expect(c.container.children[0].y).toBe(2);
+  });
+
+  it('subscribe:false: unsubscribe() before any processMessage() is a no-op-safe', () => {
+    const root = new FakeContainer();
+    const c = new PoseArrayClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: root, subscribe: false,
+    });
+    expect(() => c.unsubscribe()).not.toThrow();
+    expect(root.children).not.toContain(c.container);
+  });
+
+  it('subscribe:false: repeated processMessage replaces arrows (no accumulation)', () => {
+    const c = new PoseArrayClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: new FakeContainer(), subscribe: false,
+    });
+    c.processMessage(pa([pose(0, 0), pose(1, 1)]));
+    expect(c.container.children).toHaveLength(2);
+    c.processMessage(pa([pose(2, 2)]));
+    expect(c.container.children).toHaveLength(1);
+    expect(c.container.children[0].x).toBe(2);
+  });
 });

@@ -416,4 +416,39 @@ describe('OccupancyGridClient (subscribe:false / feed mode)', () => {
     client.processMessage(fakeMapMsg('map'));
     expect(() => client.unsubscribe()).not.toThrow();
   });
+
+  it('subscribe:false + tfClient: processMessage wraps the grid in a SceneNode', () => {
+    const tf = new fake.FakeTFClient({ fixedFrame: 'map' });
+    const root = new FakeContainer();
+    const client = new globalThis.ROS2D.OccupancyGridClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: root, tfClient: tf, subscribe: false,
+    });
+    expect(client.rosTopic).toBeNull();
+    client.processMessage(fakeMapMsg('robot_0/map'));
+    expect(client.node).toBeInstanceOf(globalThis.ROS2D.SceneNode);
+    expect(client.node.frame_id).toBe('robot_0/map');
+    expect(tf.__subscriberCount('robot_0/map')).toBe(1);
+  });
+
+  it('unsubscribe() before any processMessage() is a no-op-safe', () => {
+    const root = new FakeContainer();
+    const client = new globalThis.ROS2D.OccupancyGridClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: root, subscribe: false,
+    });
+    expect(() => client.unsubscribe()).not.toThrow();
+  });
+
+  it('subscribe:false: repeated processMessage swaps the grid without leaking children', () => {
+    const root = new FakeContainer();
+    const client = new globalThis.ROS2D.OccupancyGridClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: root, subscribe: false,
+    });
+    const childCountAfterCtor = root.children.length;
+    client.processMessage(fakeMapMsg('map'));
+    const firstGrid = client.currentGrid;
+    client.processMessage(fakeMapMsg('map'));
+    expect(client.currentGrid).not.toBe(firstGrid);
+    expect(root.children).not.toContain(firstGrid);
+    expect(root.children.length).toBe(childCountAfterCtor);
+  });
 });

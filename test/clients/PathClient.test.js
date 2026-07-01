@@ -204,4 +204,26 @@ describe('ROS2D.PathClient', () => {
     expect(() => c.unsubscribe()).not.toThrow();
     expect(root.children).not.toContain(c.pathShape);
   });
+
+  it('subscribe:false + tfClient: processMessage wraps the pathShape in a SceneNode', () => {
+    const tf = new fake.FakeTFClient({ fixedFrame: 'map' });
+    const root = new FakeContainer();
+    const c = new PathClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: root, tfClient: tf, subscribe: false,
+    });
+    expect(c.rosTopic).toBeNull();
+    c.processMessage({ header: { frame_id: 'map' }, poses: [] });
+    expect(c.node).toBeInstanceOf(globalThis.ROS2D.SceneNode);
+    expect(c.node.frame_id).toBe('map');
+    expect(root.children).toContain(c.node);
+  });
+
+  it('subscribe:false: unsubscribe() before any processMessage() is a no-op-safe', () => {
+    const root = new FakeContainer();
+    const c = new PathClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: root, subscribe: false,
+    });
+    expect(() => c.unsubscribe()).not.toThrow();
+    expect(root.children).not.toContain(c.pathShape);
+  });
 });

@@ -235,4 +235,26 @@ describe('ROS2D.OdometryClient', () => {
     expect(() => c.unsubscribe()).not.toThrow();
     expect(root.children).not.toContain(c.marker);
   });
+
+  it('subscribe:false + tfClient: processMessage wraps the marker in a SceneNode', () => {
+    const tf = new fake.FakeTFClient({ fixedFrame: 'map' });
+    const root = new FakeContainer();
+    const c = new OdometryClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: root, tfClient: tf, subscribe: false,
+    });
+    expect(c.rosTopic).toBeNull();
+    c.processMessage(odomMsg('odom', 1, 2));
+    expect(c.node).toBeInstanceOf(globalThis.ROS2D.SceneNode);
+    expect(c.node.frame_id).toBe('odom');
+    expect(c.marker.visible).toBe(true);
+  });
+
+  it('subscribe:false: unsubscribe() before any processMessage() is a no-op-safe', () => {
+    const root = new FakeContainer();
+    const c = new OdometryClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: root, subscribe: false,
+    });
+    expect(() => c.unsubscribe()).not.toThrow();
+    expect(root.children).not.toContain(c.marker);
+  });
 });

@@ -246,4 +246,13 @@ describe('ROS2D.PoseStampedClient', () => {
     expect(c.node.frame_id).toBe('map');
     expect(c.marker.visible).toBe(true);
   });
+
+  it('subscribe:false: unsubscribe() before any processMessage() is a no-op-safe', () => {
+    const root = new FakeContainer();
+    const c = new PoseStampedClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: root, subscribe: false,
+    });
+    expect(() => c.unsubscribe()).not.toThrow();
+    expect(root.children).not.toContain(c.marker);
+  });
 });

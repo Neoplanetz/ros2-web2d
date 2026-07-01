@@ -298,5 +298,27 @@ describe('ROS2D.PolygonStampedClient', () => {
       expect(() => c.unsubscribe()).not.toThrow();
       expect(root.children).not.toContain(c.polygonShape);
     });
+
+    it('with tfClient: processMessage wraps the shape in a SceneNode', () => {
+      const tf = new fake.FakeTFClient({ fixedFrame: 'map' });
+      const root = new FakeContainer();
+      const c = new PolygonStampedClient({
+        ros: new fake.ROSLIB.Ros(), rootObject: root, tfClient: tf, subscribe: false,
+      });
+      expect(c.rosTopic).toBeNull();
+      c.processMessage(polygonMsg('robot_0/map'));
+      expect(c.node).not.toBeNull();
+      expect(c.node.frame_id).toBe('robot_0/map');
+      expect(root.children).toContain(c.node);
+    });
+
+    it('unsubscribe() before any processMessage() is a no-op-safe', () => {
+      const root = new FakeContainer();
+      const c = new PolygonStampedClient({
+        ros: new fake.ROSLIB.Ros(), rootObject: root, subscribe: false,
+      });
+      expect(() => c.unsubscribe()).not.toThrow();
+      expect(root.children).not.toContain(c.polygonShape);
+    });
   });
 });
