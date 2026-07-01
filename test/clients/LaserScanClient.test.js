@@ -247,4 +247,58 @@ describe('ROS2D.LaserScanClient', () => {
     expect(topic._subs).toHaveLength(0);
     expect(root.children).not.toContain(client.scanShape);
   });
+
+  // ─── subscribe:false (render-only / feed mode) ────────────────────────
+
+  it('subscribe:false does not create a ROSLIB.Topic and sets rosTopic to null', () => {
+    const topicsBefore = fake.topics.length;
+    const client = new LaserScanClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: new FakeContainer(), subscribe: false,
+    });
+    expect(fake.topics.length).toBe(topicsBefore);
+    expect(client.rosTopic).toBeNull();
+  });
+
+  it('subscribe:false: processMessage renders identically to the subscribe path and emits change', () => {
+    const client = new LaserScanClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: new FakeContainer(), subscribe: false,
+    });
+    const onChange = vi.fn();
+    client.on('change', onChange);
+    client.processMessage(scanMsg('laser'));
+    expect(client.scanShape.graphics.circles).toHaveLength(2);
+    expect(onChange).toHaveBeenCalledTimes(1);
+  });
+
+  it('subscribe:false: unsubscribe() does not throw when rosTopic is null', () => {
+    const root = new FakeContainer();
+    const client = new LaserScanClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: root, subscribe: false,
+    });
+    client.processMessage(scanMsg('laser'));
+    expect(() => client.unsubscribe()).not.toThrow();
+    expect(root.children).not.toContain(client.scanShape);
+  });
+
+  it('subscribe:false + tfClient: processMessage wraps the shape in a SceneNode', () => {
+    const tf = new fake.FakeTFClient({ fixedFrame: 'map' });
+    const root = new FakeContainer();
+    const client = new LaserScanClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: root, tfClient: tf, subscribe: false,
+    });
+    expect(client.rosTopic).toBeNull();
+    client.processMessage(scanMsg('laser'));
+    expect(client.node).toBeInstanceOf(globalThis.ROS2D.SceneNode);
+    expect(client.node.frame_id).toBe('laser');
+    expect(root.children).toContain(client.node);
+  });
+
+  it('subscribe:false: unsubscribe() before any processMessage() is a no-op-safe', () => {
+    const root = new FakeContainer();
+    const client = new LaserScanClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: root, subscribe: false,
+    });
+    expect(() => client.unsubscribe()).not.toThrow();
+    expect(root.children).not.toContain(client.scanShape);
+  });
 });

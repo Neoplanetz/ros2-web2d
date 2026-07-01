@@ -26601,7 +26601,7 @@ var createjsExports = requireCreatejs();
 
 // import * as createjs from 'createjs-module';
 
-var REVISION = '1.8.1';
+var REVISION = '1.10.0';
 
 // convert the given global Stage coordinates to ROS coordinates
 createjsExports.Stage.prototype.globalToRos = function(x, y) {
@@ -27900,26 +27900,45 @@ var OccupancyGridClient = /*@__PURE__*/(function (EventEmitter) {
       this.rootObject.addChild(new Grid({size:1}));
     }
 
-    // subscribe to the topic
-    this.rosTopic = _makeTopic(ros, topic, 'nav_msgs/OccupancyGrid', options);
-
-    this.rosTopic.subscribe(function(message) {
-      that._renderGrid(message);
-      // A fresh message may change map dimensions/origin, so emit 'change' to let
-      // consumers re-fit the view. (setColorizer() deliberately does NOT emit —
-      // a recolor keeps the same dimensions, so the view must not be reset.)
-      that.emit('change');
-
-      // check if we should unsubscribe
-      if (!that.continuous) {
-        that.rosTopic.unsubscribe();
-      }
-    });
+    // subscribe to the topic. options.subscribe (default true) — when false, do
+    // NOT create/subscribe the ROSLIB.Topic; the client renders only messages fed
+    // via processMessage() (render-only consumers that own the subscription
+    // elsewhere), avoiding a construct-time subscribe→unsubscribe churn blip.
+    if (options.subscribe !== false) {
+      this.rosTopic = _makeTopic(ros, topic, 'nav_msgs/OccupancyGrid', options);
+      this.rosTopic.subscribe(function(message) {
+        that.processMessage(message);
+      });
+    } else {
+      this.rosTopic = null;
+    }
   }
 
   if ( EventEmitter ) OccupancyGridClient.__proto__ = EventEmitter;
   OccupancyGridClient.prototype = Object.create( EventEmitter && EventEmitter.prototype );
   OccupancyGridClient.prototype.constructor = OccupancyGridClient;
+  /**
+   * Render a single nav_msgs/OccupancyGrid message: build + swap the grid Shape
+   * (under the TF SceneNode when a tfClient is set) and emit 'change' so
+   * consumers can re-fit. In the default (non-continuous) subscribe mode the
+   * topic auto-unsubscribes after the first message; that teardown is guarded on
+   * rosTopic so render-only consumers (subscribe:false) — which have no topic and
+   * feed messages via their own transport — do not dereference null. This is the
+   * sole render path; the subscribe callback simply forwards to it.
+   */
+  OccupancyGridClient.prototype.processMessage = function processMessage (message) {
+    this._renderGrid(message);
+    // A fresh message may change map dimensions/origin, so emit 'change' to let
+    // consumers re-fit the view. (setColorizer() deliberately does NOT emit —
+    // a recolor keeps the same dimensions, so the view must not be reset.)
+    this.emit('change');
+
+    // check if we should unsubscribe. Guarded on rosTopic so feed-mode
+    // (subscribe:false) consumers, which have no topic, don't dereference null.
+    if (!this.continuous && this.rosTopic) {
+      this.rosTopic.unsubscribe();
+    }
+  };
   /**
    * Build a grid Shape from a message + the current colorizer and swap it into
    * the scene (under the TF SceneNode when a tfClient is set, otherwise directly
@@ -28166,44 +28185,62 @@ var OdometryClient = /*@__PURE__*/(function (EventEmitter) {
       this.rootObject.addChild(this.marker);
     }
 
-    this.rosTopic = _makeTopic(ros, this.topicName, 'nav_msgs/Odometry', options);
-
-    this.rosTopic.subscribe(function(message) {
-      // nav_msgs/Odometry wraps the actual pose one level deeper than
-      // geometry_msgs/PoseStamped: message.pose is a PoseWithCovariance,
-      // whose `.pose` field holds the geometry_msgs/Pose we want.
-      var pose = message && message.pose && message.pose.pose;
-      if (!pose || !pose.position) {
-        return;
-      }
-      if (that.tfClient) {
-        that.marker.visible = true;
-        var frame = (message.header && message.header.frame_id) || '';
-        if (!that.node) {
-          that.node = new SceneNode({
-            tfClient: that.tfClient,
-            frame_id: frame,
-            pose: pose,
-            object: that.marker
-          });
-          that.rootObject.addChild(that.node);
-        } else {
-          if (that.node.frame_id !== frame) { that.node.setFrame(frame); }
-          that.node.setPose(pose);
-        }
-      } else {
-        that.marker.x = pose.position.x;
-        that.marker.y = -pose.position.y;
-        that.marker.rotation = quaternionToGlobalTheta(pose.orientation || { x: 0, y: 0, z: 0, w: 1 });
-        that.marker.visible = true;
-      }
-      that.emit('change');
-    });
+    // options.subscribe (default true). When false, do NOT create/subscribe the
+    // ROSLIB.Topic — the client renders only messages fed via processMessage().
+    // Used by render-only consumers that own the subscription elsewhere, avoiding
+    // a construct-time subscribe→unsubscribe churn blip on the bridge.
+    if (options.subscribe !== false) {
+      this.rosTopic = _makeTopic(ros, this.topicName, 'nav_msgs/Odometry', options);
+      this.rosTopic.subscribe(function(message) {
+        that.processMessage(message);
+      });
+    } else {
+      this.rosTopic = null;
+    }
   }
 
   if ( EventEmitter ) OdometryClient.__proto__ = EventEmitter;
   OdometryClient.prototype = Object.create( EventEmitter && EventEmitter.prototype );
   OdometryClient.prototype.constructor = OdometryClient;
+  /**
+   * Render a single nav_msgs/Odometry message: position the managed marker
+   * (Y negated, orientation via quaternionToGlobalTheta) or drive the SceneNode
+   * when a tfClient is set, then emit 'change'. This is the sole render path —
+   * the subscribe callback simply forwards to it — so render-only consumers
+   * (subscribe:false) can feed messages from their own transport and still get
+   * the canonical mapping and SceneNode TF.
+   */
+  OdometryClient.prototype.processMessage = function processMessage (message) {
+    // nav_msgs/Odometry wraps the actual pose one level deeper than
+    // geometry_msgs/PoseStamped: message.pose is a PoseWithCovariance,
+    // whose `.pose` field holds the geometry_msgs/Pose we want.
+    var pose = message && message.pose && message.pose.pose;
+    if (!pose || !pose.position) {
+      return;
+    }
+    if (this.tfClient) {
+      this.marker.visible = true;
+      var frame = (message.header && message.header.frame_id) || '';
+      if (!this.node) {
+        this.node = new SceneNode({
+          tfClient: this.tfClient,
+          frame_id: frame,
+          pose: pose,
+          object: this.marker
+        });
+        this.rootObject.addChild(this.node);
+      } else {
+        if (this.node.frame_id !== frame) { this.node.setFrame(frame); }
+        this.node.setPose(pose);
+      }
+    } else {
+      this.marker.x = pose.position.x;
+      this.marker.y = -pose.position.y;
+      this.marker.rotation = quaternionToGlobalTheta(pose.orientation || { x: 0, y: 0, z: 0, w: 1 });
+      this.marker.visible = true;
+    }
+    this.emit('change');
+  };
   /**
    * Detach from the topic and remove the managed marker from the rootObject.
    */
@@ -28299,30 +28336,47 @@ var PathClient = /*@__PURE__*/(function (EventEmitter) {
       this.rootObject.addChild(this.pathShape);
     }
 
-    this.rosTopic = _makeTopic(ros, this.topicName, 'nav_msgs/Path', options);
-
-    this.rosTopic.subscribe(function(message) {
-      if (that.tfClient) {
-        var frame = (message && message.header && message.header.frame_id) || '';
-        if (!that.node) {
-          that.node = new SceneNode({
-            tfClient: that.tfClient,
-            frame_id: frame,
-            object: that.pathShape
-          });
-          that.rootObject.addChild(that.node);
-        } else if (that.node.frame_id !== frame) {
-          that.node.setFrame(frame);
-        }
-      }
-      that.pathShape.setPath(message);
-      that.emit('change');
-    });
+    // options.subscribe (default true). When false, do NOT create/subscribe the
+    // ROSLIB.Topic — the client renders only messages fed via processMessage().
+    // Used by render-only consumers that own the subscription elsewhere, avoiding
+    // a construct-time subscribe→unsubscribe churn blip on the bridge.
+    if (options.subscribe !== false) {
+      this.rosTopic = _makeTopic(ros, this.topicName, 'nav_msgs/Path', options);
+      this.rosTopic.subscribe(function(message) {
+        that.processMessage(message);
+      });
+    } else {
+      this.rosTopic = null;
+    }
   }
 
   if ( EventEmitter ) PathClient.__proto__ = EventEmitter;
   PathClient.prototype = Object.create( EventEmitter && EventEmitter.prototype );
   PathClient.prototype.constructor = PathClient;
+  /**
+   * Render a single nav_msgs/Path message through the managed PathShape (lazily
+   * wrapping it in a SceneNode when a tfClient is set), then emit 'change'. This
+   * is the sole render path — the subscribe callback simply forwards to it — so
+   * render-only consumers (subscribe:false) can feed messages from their own
+   * transport and still get SceneNode TF.
+   */
+  PathClient.prototype.processMessage = function processMessage (message) {
+    if (this.tfClient) {
+      var frame = (message && message.header && message.header.frame_id) || '';
+      if (!this.node) {
+        this.node = new SceneNode({
+          tfClient: this.tfClient,
+          frame_id: frame,
+          object: this.pathShape
+        });
+        this.rootObject.addChild(this.node);
+      } else if (this.node.frame_id !== frame) {
+        this.node.setFrame(frame);
+      }
+    }
+    this.pathShape.setPath(message);
+    this.emit('change');
+  };
   /**
    * Detach from the topic and remove the managed PathShape (or SceneNode
    * wrapper) from the rootObject.
@@ -28375,42 +28429,60 @@ var PoseStampedClient = /*@__PURE__*/(function (EventEmitter) {
     }
     // tfClient path: we add the SceneNode on first message instead.
 
-    this.rosTopic = _makeTopic(ros, this.topicName, 'geometry_msgs/PoseStamped', options);
-
-    this.rosTopic.subscribe(function(message) {
-      var pose = message && message.pose;
-      if (!pose || !pose.position) {
-        return;
-      }
-      if (that.tfClient) {
-        that.marker.visible = true;
-        var frame = (message.header && message.header.frame_id) || '';
-        if (!that.node) {
-          that.node = new SceneNode({
-            tfClient: that.tfClient,
-            frame_id: frame,
-            pose: pose,
-            object: that.marker
-          });
-          that.rootObject.addChild(that.node);
-        } else {
-          if (that.node.frame_id !== frame) { that.node.setFrame(frame); }
-          that.node.setPose(pose);
-        }
-        // Marker stays at origin; SceneNode positions it.
-      } else {
-        that.marker.x = pose.position.x;
-        that.marker.y = -pose.position.y;
-        that.marker.rotation = quaternionToGlobalTheta(pose.orientation || { x: 0, y: 0, z: 0, w: 1 });
-        that.marker.visible = true;
-      }
-      that.emit('change');
-    });
+    // options.subscribe (default true). When false, do NOT create/subscribe the
+    // ROSLIB.Topic — the client renders only messages fed via processMessage().
+    // Used by render-only consumers that own the subscription elsewhere, avoiding
+    // a construct-time subscribe→unsubscribe churn blip on the bridge.
+    if (options.subscribe !== false) {
+      this.rosTopic = _makeTopic(ros, this.topicName, 'geometry_msgs/PoseStamped', options);
+      this.rosTopic.subscribe(function(message) {
+        that.processMessage(message);
+      });
+    } else {
+      this.rosTopic = null;
+    }
   }
 
   if ( EventEmitter ) PoseStampedClient.__proto__ = EventEmitter;
   PoseStampedClient.prototype = Object.create( EventEmitter && EventEmitter.prototype );
   PoseStampedClient.prototype.constructor = PoseStampedClient;
+  /**
+   * Render a single geometry_msgs/PoseStamped message: position the managed
+   * marker (Y negated, orientation via quaternionToGlobalTheta), or drive the
+   * SceneNode when a tfClient is set, then emit 'change'. This is the sole
+   * render path — the subscribe callback simply forwards to it — so render-only
+   * consumers (subscribe:false) can feed messages from their own transport and
+   * still get the canonical mapping and SceneNode TF.
+   */
+  PoseStampedClient.prototype.processMessage = function processMessage (message) {
+    var pose = message && message.pose;
+    if (!pose || !pose.position) {
+      return;
+    }
+    if (this.tfClient) {
+      this.marker.visible = true;
+      var frame = (message.header && message.header.frame_id) || '';
+      if (!this.node) {
+        this.node = new SceneNode({
+          tfClient: this.tfClient,
+          frame_id: frame,
+          pose: pose,
+          object: this.marker
+        });
+        this.rootObject.addChild(this.node);
+      } else {
+        if (this.node.frame_id !== frame) { this.node.setFrame(frame); }
+        this.node.setPose(pose);
+      }
+      // Marker stays at origin; SceneNode positions it.
+    } else {
+      this.marker.x = pose.position.x;
+      this.marker.y = -pose.position.y;
+      this.marker.rotation = quaternionToGlobalTheta(pose.orientation || { x: 0, y: 0, z: 0, w: 1 });
+      this.marker.visible = true;
+    }
+    this.emit('change');
+  };
   /**
    * Detach from the topic and remove the managed marker from the rootObject.
    */
@@ -28456,30 +28528,47 @@ var PoseArrayClient = /*@__PURE__*/(function (EventEmitter) {
       this.rootObject.addChild(this.container);
     }
 
-    this.rosTopic = _makeTopic(ros, this.topicName, 'geometry_msgs/PoseArray', options);
-
-    this.rosTopic.subscribe(function(message) {
-      if (that.tfClient) {
-        var frame = (message && message.header && message.header.frame_id) || '';
-        if (!that.node) {
-          that.node = new SceneNode({
-            tfClient: that.tfClient,
-            frame_id: frame,
-            object: that.container
-          });
-          that.rootObject.addChild(that.node);
-        } else if (that.node.frame_id !== frame) {
-          that.node.setFrame(frame);
-        }
-      }
-      that._render(message);
-      that.emit('change');
-    });
+    // options.subscribe (default true). When false, do NOT create/subscribe the
+    // ROSLIB.Topic — the client renders only messages fed via processMessage().
+    // Used by render-only consumers that own the subscription elsewhere, avoiding
+    // a construct-time subscribe→unsubscribe churn blip on the bridge.
+    if (options.subscribe !== false) {
+      this.rosTopic = _makeTopic(ros, this.topicName, 'geometry_msgs/PoseArray', options);
+      this.rosTopic.subscribe(function(message) {
+        that.processMessage(message);
+      });
+    } else {
+      this.rosTopic = null;
+    }
   }
 
   if ( EventEmitter ) PoseArrayClient.__proto__ = EventEmitter;
   PoseArrayClient.prototype = Object.create( EventEmitter && EventEmitter.prototype );
   PoseArrayClient.prototype.constructor = PoseArrayClient;
+  /**
+   * Render a single geometry_msgs/PoseArray message: rebuild the arrow set
+   * (lazily wrapping the managed container in a SceneNode when a tfClient is
+   * set), then emit 'change'. This is the sole render path — the subscribe
+   * callback simply forwards to it — so render-only consumers (subscribe:false)
+   * can feed messages from their own transport and still get SceneNode TF.
+   */
+  PoseArrayClient.prototype.processMessage = function processMessage (message) {
+    if (this.tfClient) {
+      var frame = (message && message.header && message.header.frame_id) || '';
+      if (!this.node) {
+        this.node = new SceneNode({
+          tfClient: this.tfClient,
+          frame_id: frame,
+          object: this.container
+        });
+        this.rootObject.addChild(this.node);
+      } else if (this.node.frame_id !== frame) {
+        this.node.setFrame(frame);
+      }
+    }
+    this._render(message);
+    this.emit('change');
+  };
   /**
    * @private
    * Rebuild the arrow set from a PoseArray message.
@@ -28633,39 +28722,56 @@ var LaserScanClient = /*@__PURE__*/(function (EventEmitter) {
       this.rootObject.addChild(this.scanShape);
     }
 
-    this.rosTopic = _makeTopic(ros, this.topicName, 'sensor_msgs/LaserScan', options);
-
-    this.rosTopic.subscribe(function(message) {
-      if (!message || !message.ranges || typeof message.angle_min !== 'number' ||
-          typeof message.angle_increment !== 'number') {
-        return;
-      }
-
-      if (that.tfClient) {
-        var frame = message.header && message.header.frame_id;
-        if (!frame) {
-          return;
-        }
-        if (!that.node) {
-          that.node = new SceneNode({
-            tfClient: that.tfClient,
-            frame_id: frame,
-            object: that.scanShape
-          });
-          that.rootObject.addChild(that.node);
-        } else if (that.node.frame_id !== frame) {
-          that.node.setFrame(frame);
-        }
-      }
-
-      that.scanShape.setScan(message);
-      that.emit('change');
-    });
+    // options.subscribe (default true). When false, do NOT create/subscribe the
+    // ROSLIB.Topic — the client renders only messages fed via processMessage().
+    // Used by render-only consumers that own the subscription elsewhere, avoiding
+    // a construct-time subscribe→unsubscribe churn blip on the bridge.
+    if (options.subscribe !== false) {
+      this.rosTopic = _makeTopic(ros, this.topicName, 'sensor_msgs/LaserScan', options);
+      this.rosTopic.subscribe(function(message) {
+        that.processMessage(message);
+      });
+    } else {
+      this.rosTopic = null;
+    }
   }
 
   if ( EventEmitter ) LaserScanClient.__proto__ = EventEmitter;
   LaserScanClient.prototype = Object.create( EventEmitter && EventEmitter.prototype );
   LaserScanClient.prototype.constructor = LaserScanClient;
+  /**
+   * Render a single sensor_msgs/LaserScan message through the managed
+   * LaserScanShape (lazily wrapping it in a SceneNode when a tfClient is set),
+   * then emit 'change'. This is the sole render path — the subscribe callback
+   * simply forwards to it — so render-only consumers (subscribe:false) can feed
+   * messages from their own transport and still get SceneNode TF.
+   */
+  LaserScanClient.prototype.processMessage = function processMessage (message) {
+    if (!message || !message.ranges || typeof message.angle_min !== 'number' ||
+        typeof message.angle_increment !== 'number') {
+      return;
+    }
+
+    if (this.tfClient) {
+      var frame = message.header && message.header.frame_id;
+      if (!frame) {
+        return;
+      }
+      if (!this.node) {
+        this.node = new SceneNode({
+          tfClient: this.tfClient,
+          frame_id: frame,
+          object: this.scanShape
+        });
+        this.rootObject.addChild(this.node);
+      } else if (this.node.frame_id !== frame) {
+        this.node.setFrame(frame);
+      }
+    }
+
+    this.scanShape.setScan(message);
+    this.emit('change');
+  };
   /**
    * Detach from the topic and remove the managed shape (or SceneNode
    * wrapper) from the rootObject.
@@ -28801,40 +28907,57 @@ var PolygonStampedClient = /*@__PURE__*/(function (EventEmitter) {
       this.rootObject.addChild(this.polygonShape);
     }
 
-    this.rosTopic = _makeTopic(ros, this.topicName, 'geometry_msgs/PolygonStamped', options);
-
-    this.rosTopic.subscribe(function(message) {
-      var polygon = message && message.polygon;
-      var points = polygon && polygon.points;
-      if (!points) {
-        return;
-      }
-
-      if (that.tfClient) {
-        var frame = message.header && message.header.frame_id;
-        if (!frame) {
-          return;
-        }
-        if (!that.node) {
-          that.node = new SceneNode({
-            tfClient: that.tfClient,
-            frame_id: frame,
-            object: that.polygonShape
-          });
-          that.rootObject.addChild(that.node);
-        } else if (that.node.frame_id !== frame) {
-          that.node.setFrame(frame);
-        }
-      }
-
-      that.polygonShape.setPolygon(points);
-      that.emit('change');
-    });
+    // options.subscribe (default true). When false, do NOT create/subscribe the
+    // ROSLIB.Topic — the client renders only messages fed via processMessage().
+    // Used by render-only consumers that own the subscription elsewhere, avoiding
+    // a construct-time subscribe→unsubscribe churn blip on the bridge.
+    if (options.subscribe !== false) {
+      this.rosTopic = _makeTopic(ros, this.topicName, 'geometry_msgs/PolygonStamped', options);
+      this.rosTopic.subscribe(function(message) {
+        that.processMessage(message);
+      });
+    } else {
+      this.rosTopic = null;
+    }
   }
 
   if ( EventEmitter ) PolygonStampedClient.__proto__ = EventEmitter;
   PolygonStampedClient.prototype = Object.create( EventEmitter && EventEmitter.prototype );
   PolygonStampedClient.prototype.constructor = PolygonStampedClient;
+  /**
+   * Render a single geometry_msgs/PolygonStamped message through the managed
+   * PolygonShape (lazily wrapping it in a SceneNode when a tfClient is set), then
+   * emit 'change'. This is the sole render path — the subscribe callback simply
+   * forwards to it — so render-only consumers (subscribe:false) can feed messages
+   * from their own transport and still get SceneNode TF.
+   */
+  PolygonStampedClient.prototype.processMessage = function processMessage (message) {
+    var polygon = message && message.polygon;
+    var points = polygon && polygon.points;
+    if (!points) {
+      return;
+    }
+
+    if (this.tfClient) {
+      var frame = message.header && message.header.frame_id;
+      if (!frame) {
+        return;
+      }
+      if (!this.node) {
+        this.node = new SceneNode({
+          tfClient: this.tfClient,
+          frame_id: frame,
+          object: this.polygonShape
+        });
+        this.rootObject.addChild(this.node);
+      } else if (this.node.frame_id !== frame) {
+        this.node.setFrame(frame);
+      }
+    }
+
+    this.polygonShape.setPolygon(points);
+    this.emit('change');
+  };
   /**
    * Detach from the topic and remove the managed shape (or SceneNode
    * wrapper) from the rootObject.

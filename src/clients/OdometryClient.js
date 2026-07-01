@@ -24,6 +24,10 @@
  *       a default ROS2D.NavigationArrow built from the options below.
  *   * size, strokeSize, strokeColor, fillColor, pulse (optional) -
  *       forwarded to the default ROS2D.NavigationArrow
+ *   * subscribe (optional, default true) - when false, the client does not
+ *       create or subscribe a ROSLIB.Topic; feed it via processMessage()
+ *       instead. For render-only consumers that own the subscription
+ *       elsewhere (shape + tfClient still apply in this mode).
  */
 ROS2D.OdometryClient = function(options) {
   EventEmitter.call(this);
@@ -51,39 +55,58 @@ ROS2D.OdometryClient = function(options) {
     this.rootObject.addChild(this.marker);
   }
 
-  this.rosTopic = ROS2D._makeTopic(ros, this.topicName, 'nav_msgs/Odometry', options);
+  // options.subscribe (default true). When false, do NOT create/subscribe the
+  // ROSLIB.Topic — the client renders only messages fed via processMessage().
+  // Used by render-only consumers that own the subscription elsewhere, avoiding
+  // a construct-time subscribe→unsubscribe churn blip on the bridge.
+  if (options.subscribe !== false) {
+    this.rosTopic = ROS2D._makeTopic(ros, this.topicName, 'nav_msgs/Odometry', options);
+    this.rosTopic.subscribe(function(message) {
+      that.processMessage(message);
+    });
+  } else {
+    this.rosTopic = null;
+  }
+};
 
-  this.rosTopic.subscribe(function(message) {
-    // nav_msgs/Odometry wraps the actual pose one level deeper than
-    // geometry_msgs/PoseStamped: message.pose is a PoseWithCovariance,
-    // whose `.pose` field holds the geometry_msgs/Pose we want.
-    var pose = message && message.pose && message.pose.pose;
-    if (!pose || !pose.position) {
-      return;
-    }
-    if (that.tfClient) {
-      that.marker.visible = true;
-      var frame = (message.header && message.header.frame_id) || '';
-      if (!that.node) {
-        that.node = new ROS2D.SceneNode({
-          tfClient: that.tfClient,
-          frame_id: frame,
-          pose: pose,
-          object: that.marker
-        });
-        that.rootObject.addChild(that.node);
-      } else {
-        if (that.node.frame_id !== frame) { that.node.setFrame(frame); }
-        that.node.setPose(pose);
-      }
+/**
+ * Render a single nav_msgs/Odometry message: position the managed marker
+ * (Y negated, orientation via quaternionToGlobalTheta) or drive the SceneNode
+ * when a tfClient is set, then emit 'change'. This is the sole render path —
+ * the subscribe callback simply forwards to it — so render-only consumers
+ * (subscribe:false) can feed messages from their own transport and still get
+ * the canonical mapping and SceneNode TF.
+ */
+ROS2D.OdometryClient.prototype.processMessage = function(message) {
+  // nav_msgs/Odometry wraps the actual pose one level deeper than
+  // geometry_msgs/PoseStamped: message.pose is a PoseWithCovariance,
+  // whose `.pose` field holds the geometry_msgs/Pose we want.
+  var pose = message && message.pose && message.pose.pose;
+  if (!pose || !pose.position) {
+    return;
+  }
+  if (this.tfClient) {
+    this.marker.visible = true;
+    var frame = (message.header && message.header.frame_id) || '';
+    if (!this.node) {
+      this.node = new ROS2D.SceneNode({
+        tfClient: this.tfClient,
+        frame_id: frame,
+        pose: pose,
+        object: this.marker
+      });
+      this.rootObject.addChild(this.node);
     } else {
-      that.marker.x = pose.position.x;
-      that.marker.y = -pose.position.y;
-      that.marker.rotation = ROS2D.quaternionToGlobalTheta(pose.orientation || { x: 0, y: 0, z: 0, w: 1 });
-      that.marker.visible = true;
+      if (this.node.frame_id !== frame) { this.node.setFrame(frame); }
+      this.node.setPose(pose);
     }
-    that.emit('change');
-  });
+  } else {
+    this.marker.x = pose.position.x;
+    this.marker.y = -pose.position.y;
+    this.marker.rotation = ROS2D.quaternionToGlobalTheta(pose.orientation || { x: 0, y: 0, z: 0, w: 1 });
+    this.marker.visible = true;
+  }
+  this.emit('change');
 };
 
 /**

@@ -265,4 +265,60 @@ describe('ROS2D.PolygonStampedClient', () => {
       expect(tfClient.__subscriberCount('robot_0/map')).toBe(0);
     });
   });
+
+  describe('subscribe:false (feed mode)', () => {
+    it('does not create a ROSLIB.Topic and sets rosTopic to null', () => {
+      const topicsBefore = fake.topics.length;
+      const c = new PolygonStampedClient({
+        ros: new fake.ROSLIB.Ros(), rootObject: new FakeContainer(), subscribe: false,
+      });
+      expect(fake.topics.length).toBe(topicsBefore);
+      expect(c.rosTopic).toBeNull();
+    });
+
+    it('processMessage routes points into polygonShape.setPolygon and emits change', () => {
+      const c = new PolygonStampedClient({
+        ros: new fake.ROSLIB.Ros(), rootObject: new FakeContainer(), subscribe: false,
+      });
+      const setSpy = vi.spyOn(c.polygonShape, 'setPolygon');
+      const onChange = vi.fn();
+      c.on('change', onChange);
+      const msg = polygonMsg('map');
+      c.processMessage(msg);
+      expect(setSpy).toHaveBeenCalledWith(msg.polygon.points);
+      expect(onChange).toHaveBeenCalledTimes(1);
+    });
+
+    it('unsubscribe() does not throw when rosTopic is null', () => {
+      const root = new FakeContainer();
+      const c = new PolygonStampedClient({
+        ros: new fake.ROSLIB.Ros(), rootObject: root, subscribe: false,
+      });
+      c.processMessage(polygonMsg('map'));
+      expect(() => c.unsubscribe()).not.toThrow();
+      expect(root.children).not.toContain(c.polygonShape);
+    });
+
+    it('with tfClient: processMessage wraps the shape in a SceneNode', () => {
+      const tf = new fake.FakeTFClient({ fixedFrame: 'map' });
+      const root = new FakeContainer();
+      const c = new PolygonStampedClient({
+        ros: new fake.ROSLIB.Ros(), rootObject: root, tfClient: tf, subscribe: false,
+      });
+      expect(c.rosTopic).toBeNull();
+      c.processMessage(polygonMsg('robot_0/map'));
+      expect(c.node).not.toBeNull();
+      expect(c.node.frame_id).toBe('robot_0/map');
+      expect(root.children).toContain(c.node);
+    });
+
+    it('unsubscribe() before any processMessage() is a no-op-safe', () => {
+      const root = new FakeContainer();
+      const c = new PolygonStampedClient({
+        ros: new fake.ROSLIB.Ros(), rootObject: root, subscribe: false,
+      });
+      expect(() => c.unsubscribe()).not.toThrow();
+      expect(root.children).not.toContain(c.polygonShape);
+    });
+  });
 });

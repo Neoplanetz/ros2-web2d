@@ -170,4 +170,60 @@ describe('ROS2D.PathClient', () => {
     expect(root.children).toContain(client.pathShape);
     expect(client.node).toBeFalsy();
   });
+
+  // ─── subscribe:false (render-only / feed mode) ────────────────────────
+
+  it('subscribe:false does not create a ROSLIB.Topic and sets rosTopic to null', () => {
+    const topicsBefore = fake.topics.length;
+    const c = new PathClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: new FakeContainer(), subscribe: false,
+    });
+    expect(fake.topics.length).toBe(topicsBefore);
+    expect(c.rosTopic).toBeNull();
+  });
+
+  it('subscribe:false: processMessage renders identically to the subscribe path and emits change', () => {
+    const c = new PathClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: new FakeContainer(), subscribe: false,
+    });
+    const onChange = vi.fn();
+    c.on('change', onChange);
+    const msg = { poses: [{ pose: { position: { x: 0, y: 0 } } }] };
+    c.processMessage(msg);
+    expect(c.pathShape.paths).toHaveLength(1);
+    expect(c.pathShape.paths[0]).toBe(msg);
+    expect(onChange).toHaveBeenCalledTimes(1);
+  });
+
+  it('subscribe:false: unsubscribe() does not throw when rosTopic is null', () => {
+    const root = new FakeContainer();
+    const c = new PathClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: root, subscribe: false,
+    });
+    c.processMessage({ poses: [] });
+    expect(() => c.unsubscribe()).not.toThrow();
+    expect(root.children).not.toContain(c.pathShape);
+  });
+
+  it('subscribe:false + tfClient: processMessage wraps the pathShape in a SceneNode', () => {
+    const tf = new fake.FakeTFClient({ fixedFrame: 'map' });
+    const root = new FakeContainer();
+    const c = new PathClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: root, tfClient: tf, subscribe: false,
+    });
+    expect(c.rosTopic).toBeNull();
+    c.processMessage({ header: { frame_id: 'map' }, poses: [] });
+    expect(c.node).toBeInstanceOf(globalThis.ROS2D.SceneNode);
+    expect(c.node.frame_id).toBe('map');
+    expect(root.children).toContain(c.node);
+  });
+
+  it('subscribe:false: unsubscribe() before any processMessage() is a no-op-safe', () => {
+    const root = new FakeContainer();
+    const c = new PathClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: root, subscribe: false,
+    });
+    expect(() => c.unsubscribe()).not.toThrow();
+    expect(root.children).not.toContain(c.pathShape);
+  });
 });

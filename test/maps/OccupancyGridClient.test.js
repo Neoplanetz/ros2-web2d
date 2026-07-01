@@ -261,6 +261,17 @@ describe('OccupancyGridClient (baseline, v1 API)', () => {
     topic.__emit(fakeMapMsg('map'));
     expect(client.node).toBeFalsy();
   });
+
+  it('non-continuous (default) subscribe mode unsubscribes after the first message', () => {
+    const root = new FakeContainer();
+    const client = new globalThis.ROS2D.OccupancyGridClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: root,
+    });
+    const topic = fake.topics[fake.topics.length - 1];
+    expect(topic._subs).toHaveLength(1);
+    topic.__emit(fakeMapMsg('map'));
+    expect(topic._subs).toHaveLength(0);
+  });
 });
 
 describe('OccupancyGridClient.setColorizer (in-place recolor, no re-subscribe)', () => {
@@ -349,5 +360,95 @@ describe('OccupancyGridClient.setColorizer (in-place recolor, no re-subscribe)',
     const topic = fake.topics[fake.topics.length - 1];
     topic.__emit(fakeMapMsg());
     expect(client.currentGrid.colorizer).toBe(customFn);
+  });
+});
+
+describe('OccupancyGridClient (subscribe:false / feed mode)', () => {
+  beforeEach(() => {
+    fake.topics.length = 0;
+  });
+
+  function fakeMapMsg(frame) {
+    return {
+      header: { frame_id: frame },
+      info: {
+        width: 10, height: 10, resolution: 0.1,
+        origin: {
+          position: { x: 0, y: 0, z: 0 },
+          orientation: { x: 0, y: 0, z: 0, w: 1 },
+        },
+      },
+      data: new Array(100).fill(0),
+    };
+  }
+
+  it('does not create a ROSLIB.Topic and sets rosTopic to null', () => {
+    const root = new FakeContainer();
+    const topicsBefore = fake.topics.length;
+    const client = new globalThis.ROS2D.OccupancyGridClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: root, subscribe: false,
+    });
+    expect(fake.topics.length).toBe(topicsBefore);
+    expect(client.rosTopic).toBeNull();
+  });
+
+  it('processMessage renders the grid, caches lastMessage, and emits change without a topic', () => {
+    const root = new FakeContainer();
+    const client = new globalThis.ROS2D.OccupancyGridClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: root, colorizer: 'costmap', subscribe: false,
+    });
+    const onChange = vi.fn();
+    client.on('change', onChange);
+    const msg = fakeMapMsg('map');
+    // The non-continuous auto-unsubscribe must be null-guarded: with no topic
+    // this would otherwise throw on this.rosTopic.unsubscribe().
+    expect(() => client.processMessage(msg)).not.toThrow();
+    expect(client.lastMessage).toBe(msg);
+    expect(client.currentGrid.colorizer).toBe('costmap');
+    expect(onChange).toHaveBeenCalledTimes(1);
+  });
+
+  it('unsubscribe() does not throw when rosTopic is null', () => {
+    const root = new FakeContainer();
+    const client = new globalThis.ROS2D.OccupancyGridClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: root, subscribe: false,
+    });
+    client.processMessage(fakeMapMsg('map'));
+    expect(() => client.unsubscribe()).not.toThrow();
+  });
+
+  it('subscribe:false + tfClient: processMessage wraps the grid in a SceneNode', () => {
+    const tf = new fake.FakeTFClient({ fixedFrame: 'map' });
+    const root = new FakeContainer();
+    const client = new globalThis.ROS2D.OccupancyGridClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: root, tfClient: tf, subscribe: false,
+    });
+    expect(client.rosTopic).toBeNull();
+    client.processMessage(fakeMapMsg('robot_0/map'));
+    expect(client.node).toBeInstanceOf(globalThis.ROS2D.SceneNode);
+    expect(client.node.frame_id).toBe('robot_0/map');
+    expect(tf.__subscriberCount('robot_0/map')).toBe(1);
+  });
+
+  it('unsubscribe() before any processMessage() is a no-op-safe', () => {
+    const root = new FakeContainer();
+    const client = new globalThis.ROS2D.OccupancyGridClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: root, subscribe: false,
+    });
+    expect(() => client.unsubscribe()).not.toThrow();
+  });
+
+  it('subscribe:false: repeated processMessage swaps the grid without leaking children', () => {
+    const root = new FakeContainer();
+    const client = new globalThis.ROS2D.OccupancyGridClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: root, subscribe: false,
+    });
+    const childCountAfterCtor = root.children.length;
+    client.processMessage(fakeMapMsg('map'));
+    const firstGrid = client.currentGrid;
+    client.processMessage(fakeMapMsg('map'));
+    expect(client.currentGrid).not.toBe(firstGrid);
+    expect(root.children).not.toContain(firstGrid);
+    expect(root.children.length).toBe(childCountAfterCtor);
   });
 });

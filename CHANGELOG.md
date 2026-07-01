@@ -3,6 +3,66 @@
 All notable changes to this project are documented here.
 The project follows [Semantic Versioning](https://semver.org/).
 
+## [1.10.0] — 2026-07-01
+
+### Added
+
+- **Feed-agnostic subscribe-only Clients** — every subscribe-only Client now
+  accepts a `subscribe` constructor option (default `true`) and exposes a
+  public `processMessage(message)` method, generalizing the pattern
+  `MarkerArrayClient` introduced in 1.9.0 to the rest of the library. When
+  `subscribe: false` the client does **not** create or subscribe a
+  `ROSLIB.Topic` (`rosTopic === null`) and renders only messages fed to
+  `processMessage()`. This lets a consumer that owns the wire subscription
+  elsewhere (its own transport / subscription cache) drive a Client purely as a
+  renderer, while still getting the Client's canonical message→shape mapping
+  **and** its `SceneNode` TF wrapping (via `tfClient`) for free — the two costs
+  a consumer previously paid for bypassing the Client layer.
+
+  Applied to `PoseStampedClient`, `OdometryClient`, `PathClient`,
+  `PoseArrayClient`, `PolygonStampedClient`, `LaserScanClient`
+  (`src/clients/`), and `OccupancyGridClient` (`src/maps/`). `ImageMapClient`
+  (loads a static image URL) and `OccupancyGridSrvClient` (a service call, not
+  a subscription) are intentionally excluded — feed-mode does not map cleanly
+  onto them.
+
+  Purely additive and backward compatible: omit `subscribe` (or pass `true`)
+  and every Client behaves byte-for-byte as before — same topic, same subscribe
+  callback, same events. Internally each client's inline subscribe closure was
+  extracted into `processMessage()` and the subscribe callback now simply
+  forwards to it, so the subscribing and feed paths share a single render path.
+  `unsubscribe()` remains a no-op-safe when `rosTopic === null`.
+
+- **`OccupancyGridClient` non-continuous auto-unsubscribe is now null-guarded.**
+  The default (non-`continuous`) mode unsubscribes from the topic after the
+  first message; that teardown is now guarded on `this.rosTopic` so a
+  `subscribe: false` grid driven via `processMessage()` — which has no topic —
+  does not dereference null. The subscribing path is unchanged.
+
+Motivated by the `omnifleet` multi-robot dashboard, which drives ros2-web2d
+render primitives from its own churn-hardened subscription layer and previously
+had to re-implement each Client's message→shape mapping and lost `SceneNode` TF
+by bypassing the Client layer.
+
+## [1.9.0] — 2026-06-07
+
+### Added
+
+- **`MarkerArrayClient` `subscribe: false` (render-only) + public
+  `processMessage(message)`.** The client can now be constructed without
+  creating or subscribing a `ROSLIB.Topic` (`rosTopic === null`) and driven
+  entirely by feeding `visualization_msgs/MarkerArray` messages to
+  `processMessage()`. The constructor's inline subscribe closure was extracted
+  into the public `processMessage` prototype method, and topic creation is
+  gated behind `if (options.subscribe !== false)`; when `subscribe` is omitted
+  or `true` the behavior is byte-for-byte identical to 1.8.x. All existing
+  functionality — ADD / MODIFY / DELETE / DELETEALL actions, lifetime-based
+  automatic removal, `rvizOrder`, `tfClient` `SceneNode` wrapping, and
+  `'change'` emission — is unchanged in the default subscribing mode. For
+  render-only consumers that own the topic subscription elsewhere and want to
+  avoid a construct-time subscribe→unsubscribe churn blip on the bridge. This
+  is the reference pattern that 1.10.0 generalizes to every other Client.
+
 ## [1.8.1] — 2026-06-03
 
 ### Added

@@ -20,6 +20,10 @@
  *   * strokeSize (optional) - forwarded to ROS2D.NavigationArrow
  *   * strokeColor (optional) - forwarded to ROS2D.NavigationArrow
  *   * fillColor (optional) - forwarded to ROS2D.NavigationArrow
+ *   * subscribe (optional, default true) - when false, the client does not
+ *       create or subscribe a ROSLIB.Topic; feed it via processMessage()
+ *       instead. For render-only consumers that own the subscription
+ *       elsewhere (tfClient still applies in this mode).
  */
 ROS2D.PoseArrayClient = function(options) {
   EventEmitter.call(this);
@@ -46,25 +50,43 @@ ROS2D.PoseArrayClient = function(options) {
     this.rootObject.addChild(this.container);
   }
 
-  this.rosTopic = ROS2D._makeTopic(ros, this.topicName, 'geometry_msgs/PoseArray', options);
+  // options.subscribe (default true). When false, do NOT create/subscribe the
+  // ROSLIB.Topic — the client renders only messages fed via processMessage().
+  // Used by render-only consumers that own the subscription elsewhere, avoiding
+  // a construct-time subscribe→unsubscribe churn blip on the bridge.
+  if (options.subscribe !== false) {
+    this.rosTopic = ROS2D._makeTopic(ros, this.topicName, 'geometry_msgs/PoseArray', options);
+    this.rosTopic.subscribe(function(message) {
+      that.processMessage(message);
+    });
+  } else {
+    this.rosTopic = null;
+  }
+};
 
-  this.rosTopic.subscribe(function(message) {
-    if (that.tfClient) {
-      var frame = (message && message.header && message.header.frame_id) || '';
-      if (!that.node) {
-        that.node = new ROS2D.SceneNode({
-          tfClient: that.tfClient,
-          frame_id: frame,
-          object: that.container
-        });
-        that.rootObject.addChild(that.node);
-      } else if (that.node.frame_id !== frame) {
-        that.node.setFrame(frame);
-      }
+/**
+ * Render a single geometry_msgs/PoseArray message: rebuild the arrow set
+ * (lazily wrapping the managed container in a SceneNode when a tfClient is
+ * set), then emit 'change'. This is the sole render path — the subscribe
+ * callback simply forwards to it — so render-only consumers (subscribe:false)
+ * can feed messages from their own transport and still get SceneNode TF.
+ */
+ROS2D.PoseArrayClient.prototype.processMessage = function(message) {
+  if (this.tfClient) {
+    var frame = (message && message.header && message.header.frame_id) || '';
+    if (!this.node) {
+      this.node = new ROS2D.SceneNode({
+        tfClient: this.tfClient,
+        frame_id: frame,
+        object: this.container
+      });
+      this.rootObject.addChild(this.node);
+    } else if (this.node.frame_id !== frame) {
+      this.node.setFrame(frame);
     }
-    that._render(message);
-    that.emit('change');
-  });
+  }
+  this._render(message);
+  this.emit('change');
 };
 
 /**

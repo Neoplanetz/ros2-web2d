@@ -28,6 +28,10 @@ export class PoseStampedClient extends EventEmitter<string | symbol, any> {
      *   * strokeColor (optional) - forwarded to the default ROS2D.NavigationArrow
      *   * fillColor (optional) - forwarded to the default ROS2D.NavigationArrow
      *   * pulse (optional) - forwarded to the default ROS2D.NavigationArrow
+     *   * subscribe (optional, default true) - when false, the client does not
+     *       create or subscribe a ROSLIB.Topic; feed it via processMessage()
+     *       instead. For render-only consumers that own the subscription
+     *       elsewhere (shape + tfClient still apply in this mode).
      */
     constructor(options: any);
     topicName: any;
@@ -35,11 +39,21 @@ export class PoseStampedClient extends EventEmitter<string | symbol, any> {
     marker: any;
     arrow: any;
     tfClient: any;
-    node: any;
+    node: SceneNode;
     rosTopic: import("roslib").Topic<unknown>;
+    /**
+     * Render a single geometry_msgs/PoseStamped message: position the managed
+     * marker (Y negated, orientation via quaternionToGlobalTheta), or drive the
+     * SceneNode when a tfClient is set, then emit 'change'. This is the sole
+     * render path — the subscribe callback simply forwards to it — so render-only
+     * consumers (subscribe:false) can feed messages from their own transport and
+     * still get the canonical mapping and SceneNode TF.
+     */
+    processMessage(message: any): void;
     /**
      * Detach from the topic and remove the managed marker from the rootObject.
      */
     unsubscribe(): void;
 }
 import EventEmitter from 'eventemitter3';
+import { SceneNode } from '../visualization/SceneNode';

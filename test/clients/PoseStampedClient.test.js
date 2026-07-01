@@ -191,4 +191,68 @@ describe('ROS2D.PoseStampedClient', () => {
     expect(client.marker.y).toBe(-3);
     expect(client.node).toBeFalsy();
   });
+
+  // ─── subscribe:false (render-only / feed mode) ────────────────────────
+  // When subscribe:false is set the client must NOT create a ROSLIB.Topic,
+  // but must still render messages fed via processMessage() — the same
+  // canonical mapping (and SceneNode TF) the subscribe path uses.
+
+  it('subscribe:false does not create a ROSLIB.Topic and sets rosTopic to null', () => {
+    const topicsBefore = fake.topics.length;
+    const c = new PoseStampedClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: new FakeContainer(), subscribe: false,
+    });
+    expect(fake.topics.length).toBe(topicsBefore);
+    expect(c.rosTopic).toBeNull();
+  });
+
+  it('subscribe:false: processMessage renders identically to the subscribe path and emits change', () => {
+    const root = new FakeContainer();
+    const c = new PoseStampedClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: root, subscribe: false,
+    });
+    const onChange = vi.fn();
+    c.on('change', onChange);
+    c.processMessage({ pose: { position: { x: 1, y: 2, z: 3 }, orientation: { x: 0, y: 0, z: 0, w: 1 } } });
+    expect(c.arrow.x).toBe(1);
+    expect(c.arrow.y).toBe(-2);
+    expect(c.arrow.rotation).toBe(0);
+    expect(c.arrow.visible).toBe(true);
+    expect(onChange).toHaveBeenCalledTimes(1);
+  });
+
+  it('subscribe:false: unsubscribe() does not throw when rosTopic is null', () => {
+    const root = new FakeContainer();
+    const c = new PoseStampedClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: root, subscribe: false,
+    });
+    c.processMessage({ pose: { position: { x: 1, y: 2 }, orientation: { x: 0, y: 0, z: 0, w: 1 } } });
+    expect(() => c.unsubscribe()).not.toThrow();
+    expect(root.children).not.toContain(c.marker);
+  });
+
+  it('subscribe:false + tfClient: processMessage still wraps the marker in a SceneNode', () => {
+    const tf = new fake.FakeTFClient({ fixedFrame: 'map' });
+    const root = new FakeContainer();
+    const c = new PoseStampedClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: root, tfClient: tf, subscribe: false,
+    });
+    expect(c.rosTopic).toBeNull();
+    c.processMessage({
+      header: { frame_id: 'map' },
+      pose: { position: { x: 1, y: 2, z: 0 }, orientation: { x: 0, y: 0, z: 0, w: 1 } },
+    });
+    expect(c.node).toBeInstanceOf(globalThis.ROS2D.SceneNode);
+    expect(c.node.frame_id).toBe('map');
+    expect(c.marker.visible).toBe(true);
+  });
+
+  it('subscribe:false: unsubscribe() before any processMessage() is a no-op-safe', () => {
+    const root = new FakeContainer();
+    const c = new PoseStampedClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: root, subscribe: false,
+    });
+    expect(() => c.unsubscribe()).not.toThrow();
+    expect(root.children).not.toContain(c.marker);
+  });
 });

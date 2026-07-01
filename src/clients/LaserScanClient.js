@@ -16,6 +16,10 @@
  *   * pointColor (optional) - forwarded to ROS2D.LaserScanShape
  *   * sampleStep (optional) - forwarded to ROS2D.LaserScanShape
  *   * maxRange (optional) - forwarded to ROS2D.LaserScanShape
+ *   * subscribe (optional, default true) - when false, the client does not
+ *       create or subscribe a ROSLIB.Topic; feed it via processMessage()
+ *       instead. For render-only consumers that own the subscription
+ *       elsewhere (tfClient still applies in this mode).
  */
 ROS2D.LaserScanClient = function(options) {
   EventEmitter.call(this);
@@ -40,34 +44,52 @@ ROS2D.LaserScanClient = function(options) {
     this.rootObject.addChild(this.scanShape);
   }
 
-  this.rosTopic = ROS2D._makeTopic(ros, this.topicName, 'sensor_msgs/LaserScan', options);
+  // options.subscribe (default true). When false, do NOT create/subscribe the
+  // ROSLIB.Topic — the client renders only messages fed via processMessage().
+  // Used by render-only consumers that own the subscription elsewhere, avoiding
+  // a construct-time subscribe→unsubscribe churn blip on the bridge.
+  if (options.subscribe !== false) {
+    this.rosTopic = ROS2D._makeTopic(ros, this.topicName, 'sensor_msgs/LaserScan', options);
+    this.rosTopic.subscribe(function(message) {
+      that.processMessage(message);
+    });
+  } else {
+    this.rosTopic = null;
+  }
+};
 
-  this.rosTopic.subscribe(function(message) {
-    if (!message || !message.ranges || typeof message.angle_min !== 'number' ||
-        typeof message.angle_increment !== 'number') {
+/**
+ * Render a single sensor_msgs/LaserScan message through the managed
+ * LaserScanShape (lazily wrapping it in a SceneNode when a tfClient is set),
+ * then emit 'change'. This is the sole render path — the subscribe callback
+ * simply forwards to it — so render-only consumers (subscribe:false) can feed
+ * messages from their own transport and still get SceneNode TF.
+ */
+ROS2D.LaserScanClient.prototype.processMessage = function(message) {
+  if (!message || !message.ranges || typeof message.angle_min !== 'number' ||
+      typeof message.angle_increment !== 'number') {
+    return;
+  }
+
+  if (this.tfClient) {
+    var frame = message.header && message.header.frame_id;
+    if (!frame) {
       return;
     }
-
-    if (that.tfClient) {
-      var frame = message.header && message.header.frame_id;
-      if (!frame) {
-        return;
-      }
-      if (!that.node) {
-        that.node = new ROS2D.SceneNode({
-          tfClient: that.tfClient,
-          frame_id: frame,
-          object: that.scanShape
-        });
-        that.rootObject.addChild(that.node);
-      } else if (that.node.frame_id !== frame) {
-        that.node.setFrame(frame);
-      }
+    if (!this.node) {
+      this.node = new ROS2D.SceneNode({
+        tfClient: this.tfClient,
+        frame_id: frame,
+        object: this.scanShape
+      });
+      this.rootObject.addChild(this.node);
+    } else if (this.node.frame_id !== frame) {
+      this.node.setFrame(frame);
     }
+  }
 
-    that.scanShape.setScan(message);
-    that.emit('change');
-  });
+  this.scanShape.setScan(message);
+  this.emit('change');
 };
 
 /**
