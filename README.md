@@ -41,12 +41,17 @@ new OccupancyGridClient({ ros, rootObject: viewer.scene });
   marker primitives that project meaningfully into 2D.
 - **Sensors** — `LaserScanClient` renders `sensor_msgs/LaserScan`
   as 2D points, with optional sampling and range filters.
+- **Feed mode** — every subscribing client also takes `subscribe: false`
+  plus a public `processMessage(message)`, so a consumer that owns the
+  topic subscription elsewhere (a shared cache, its own transport) can
+  reuse the client's message→shape mapping and TF wrapping as a pure
+  renderer.
 - **Mouse controls** — a drop-in
   [`enableViewerMouseControls`](./examples/src/lib/ros2dHelpers.js)
   helper in the example studio wires left-drag pan, right-drag
   rotate, and wheel zoom to any `Viewer`.
 - **Modern build** — ES modules, Rollup bundles (CJS / ESM /
-  IIFE), TypeScript declarations, and a vitest suite with 156
+  IIFE), TypeScript declarations, and a vitest suite with 289
   tests at the time of writing.
 
 ## Install
@@ -163,8 +168,11 @@ returns a 0..255 RGBA tuple.
 | `PolygonStampedClient` | `geometry_msgs/PolygonStamped` | Closed outline via `PolygonShape`; default topic `/local_costmap/published_footprint` for active nav2 footprints; optional `tfClient` follows `header.frame_id` when frame conversion is needed |
 
 Shared options on ROS-driven clients: `ros`, `topic`, `rootObject`,
-`tfClient`. Every client also forwards the standard `ROSLIB.Topic`
-subscribe options when supplied. Only options that the rosbridge
+`tfClient`, and `subscribe` (set it to `false` to run the client as a pure
+renderer you feed yourself — see [Rendering
+models](#rendering-models-subscribing-clients-vs-feed-mode) below). Every
+client also forwards the standard `ROSLIB.Topic` subscribe options when
+supplied. Only options that the rosbridge
 `subscribe` op actually carries (plus the connection-level
 `reconnect_on_close`) are forwarded; advertise-only options like
 `queue_size` and `latch` are intentionally omitted because every
@@ -185,6 +193,49 @@ new MarkerArrayClient({
   compression: 'cbor',
 });
 ```
+
+## Rendering models: subscribing Clients vs feed mode
+
+The library is two layers:
+
+- **Render primitives** — `OccupancyGrid`, `NavigationArrow`, `PathShape`,
+  `PolygonShape`, `LaserScanShape`, `Marker`. Plain EaselJS display objects
+  that draw a single message. They never touch ROS.
+- **Clients** — `OccupancyGridClient`, `PoseStampedClient`, `PathClient`,
+  `MarkerArrayClient`, … Each subscribes to a ROS topic, owns a render
+  primitive, maps every incoming message onto it (the Y-negate and, with a
+  `tfClient`, the `SceneNode` TF wrapping), and emits `'change'`.
+
+Most apps just construct a Client and let it own the subscription. But if you
+already own the subscription elsewhere — say a shared cache that dedupes N
+consumers of one topic onto a single rosbridge subscription — you can run any
+subscribe-only Client as a **pure renderer** with `subscribe: false` and feed
+it messages through `processMessage(message)`:
+
+```js
+// subscribe:false → no ROSLIB.Topic is created (client.rosTopic === null).
+const pose = new PoseStampedClient({
+  ros, rootObject: viewer.scene, tfClient,
+  subscribe: false,
+});
+
+// Drive it from your own transport / subscription cache:
+myTopicCache.subscribe('/goal_pose', (msg) => pose.processMessage(msg));
+```
+
+In feed mode the Client still gives you its canonical message→shape mapping
+**and** its `SceneNode` TF wrapping (`tfClient`), plus every render option
+(`shape`, `colorizer`, …) — you only take over *where the messages come from*.
+Omit `subscribe` (or pass `true`) and the Client subscribes itself exactly as
+before; the option is purely additive, so existing code is unaffected.
+`unsubscribe()` stays safe in feed mode (a no-op on the null topic that still
+tears down the `SceneNode` and removes the primitive).
+
+Supported on every subscribe-only Client: `PoseStampedClient`,
+`OdometryClient`, `PathClient`, `PoseArrayClient`, `PolygonStampedClient`,
+`LaserScanClient`, `MarkerArrayClient`, and `OccupancyGridClient`.
+`ImageMapClient` (loads a static image) and `OccupancyGridSrvClient` (a service
+call) are not topic subscribers, so they have no feed mode.
 
 ## Footprint and polygon overlays
 
@@ -319,7 +370,7 @@ has since diverged into an independent, **ROS 2-only** library. The
 upstream project predates ROS 2 and has been unmaintained since 2022;
 `ros2-web2d` picks up the 2D-visualization role with a rebuilt TF
 integration, modern Rollup/ES module pipeline, a Vite + React example
-studio, and a test surface spanning 156 vitest cases plus a Playwright
+studio, and a test surface spanning 289 vitest cases plus a Playwright
 smoke suite. ROS 1 support is intentionally dropped.
 
 ## License
