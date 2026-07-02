@@ -29,3 +29,4 @@ export * from "./visualization/Axis";
 export * from "./visualization/GridLines";
 export * from "./visualization/PoseInteractionView";
 export * from "./visualization/SceneNode";
+export { setTopicPoolGraceMs } from "./util/topicHelper";

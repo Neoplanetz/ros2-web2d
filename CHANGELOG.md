@@ -3,6 +3,46 @@
 All notable changes to this project are documented here.
 The project follows [Semantic Versioning](https://semver.org/).
 
+## [1.11.0] — 2026-07-02
+
+### Added
+
+- **Optional shared subscription pool** — subscribe-only Clients now accept a
+  `pool: true` constructor option that opts them into a refcounted,
+  per-connection subscription pool. N Clients on the same topic share ONE
+  underlying `ROSLIB.Topic` instead of each opening a duplicate rosbridge
+  subscription, giving conventional Client users the wire-level dedup +
+  churn-safety a bespoke transport would otherwise have to build (the same
+  guarantees behind `subscribe: false` feed-mode, but without giving up the
+  Client's own subscription). The pool key is the wire identity of the
+  subscription — topic name + `messageType` + every forwarded wire option
+  (`throttle_rate`, `queue_length`, `compression`, `reconnect_on_close`) — so
+  Clients whose wire parameters differ never silently coalesce onto one bridge
+  subscription; they get separate pooled entries.
+
+  When the last consumer of a pooled topic leaves, the real `unsubscribe()` is
+  **deferred by a grace window** (default 5000 ms) so a quick unmount→remount
+  reuses the live subscription instead of churning the bridge — which can trip
+  the `rclpy destroy_subscription` SIGSEGV race under rapid layer/route
+  toggling. The last dispatched message is retained and **replayed to a Client
+  that joins an already-live shared topic**, so a pooled Client behaves as if
+  it held its own latched subscription (e.g. a second `OccupancyGridClient`
+  attaching after the map was delivered still renders). Each consumer is
+  dispatched inside its own `try/catch`, so one throwing Client cannot starve
+  its siblings on the shared topic.
+
+  Strictly **opt-in and backward compatible**: omit `pool` (or pass a falsy
+  value) and `_makeTopic` behaves byte-for-byte as before — a fresh
+  `ROSLIB.Topic` torn down immediately on `unsubscribe()`. A `subscribe: false`
+  Client never constructs a topic, so it never touches the pool — the P1
+  feed-mode and P3 pool paths compose with no special-casing. No Client code
+  changed: the pool hooks behind `_makeTopic` and returns a handle exposing the
+  same `.subscribe()` / `.unsubscribe()` surface Clients already use.
+
+- **`ROS2D.setTopicPoolGraceMs(ms)`** — new public function to configure the
+  shared pool's deferred-unsubscribe grace window (milliseconds). Pass `0` to
+  tear down immediately on the last release. Default 5000.
+
 ## [1.10.0] — 2026-07-01
 
 ### Added

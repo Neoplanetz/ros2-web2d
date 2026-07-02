@@ -36,7 +36,12 @@ export class OdometryClient extends EventEmitter<string | symbol, any> {
     marker: any;
     tfClient: any;
     node: SceneNode;
-    rosTopic: import("roslib").Topic<unknown>;
+    rosTopic: {
+        name: any;
+        messageType: any;
+        subscribe: (cb: any) => void;
+        unsubscribe: () => void;
+    } | import("roslib").Topic<unknown>;
     /**
      * Render a single nav_msgs/Odometry message: position the managed marker
      * (Y negated, orientation via quaternionToGlobalTheta) or drive the SceneNode

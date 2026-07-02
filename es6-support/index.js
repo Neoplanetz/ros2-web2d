@@ -1,6 +1,11 @@
 
 export * from './Ros2D'
 
+// Public shared-subscription-pool control (P3). _makeTopic itself stays
+// internal (clients import it transitively); only the grace-window setter is
+// part of the public API.
+export { setTopicPoolGraceMs } from './util/topicHelper'
+
 export * from './maps/ImageMap'
 export * from './maps/ImageMapClient'
 export * from './maps/OccupancyGrid'

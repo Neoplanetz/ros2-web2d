@@ -40,7 +40,12 @@ export class OccupancyGridClient extends EventEmitter<string | symbol, any> {
     lastMessage: any;
     disposed: boolean;
     currentGrid: createjs.Shape;
-    rosTopic: import("roslib").Topic<unknown>;
+    rosTopic: {
+        name: any;
+        messageType: any;
+        subscribe: (cb: any) => void;
+        unsubscribe: () => void;
+    } | import("roslib").Topic<unknown>;
     /**
      * Render a single nav_msgs/OccupancyGrid message: build + swap the grid Shape
      * (under the TF SceneNode when a tfClient is set) and emit 'change' so

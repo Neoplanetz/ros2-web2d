@@ -41,7 +41,12 @@ export class PolygonStampedClient extends EventEmitter<string | symbol, any> {
     tfClient: any;
     node: SceneNode;
     polygonShape: PolygonShape;
-    rosTopic: import("roslib").Topic<unknown>;
+    rosTopic: {
+        name: any;
+        messageType: any;
+        subscribe: (cb: any) => void;
+        unsubscribe: () => void;
+    } | import("roslib").Topic<unknown>;
     /**
      * Render a single geometry_msgs/PolygonStamped message through the managed
      * PolygonShape (lazily wrapping it in a SceneNode when a tfClient is set), then
