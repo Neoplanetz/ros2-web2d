@@ -12,7 +12,7 @@ jobs:
     permissions:
       contents: write     # let GITHUB_TOKEN push the built docs to gh-pages
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           cache: npm
