@@ -10,6 +10,7 @@ export function LaserScanDemo({ ros, viewer }) {
     maxRange: '',
     fixedFrame: 'map',
     useTf: false,
+    pool: false,
   });
   const [settings, setSettings] = useState({
     topic: '/scan',
@@ -18,6 +19,7 @@ export function LaserScanDemo({ ros, viewer }) {
     maxRange: null,
     fixedFrame: 'map',
     useTf: false,
+    pool: false,
   });
   const [status, setStatus] = useState('Waiting for LaserScan data');
 
@@ -40,6 +42,7 @@ export function LaserScanDemo({ ros, viewer }) {
       sampleStep: settings.sampleStep,
       maxRange: settings.maxRange,
       pointColor: '#dd5333',
+      pool: settings.pool,
     });
 
     const handleChange = () => {
@@ -112,6 +115,14 @@ export function LaserScanDemo({ ros, viewer }) {
           />
           <span>Use TF</span>
         </label>
+        <label className="toggle-field">
+          <input
+            type="checkbox"
+            checked={draft.pool}
+            onChange={(event) => setDraft({ ...draft, pool: event.target.checked })}
+          />
+          <span>Shared subscription pool</span>
+        </label>
       </div>
 
       <div className="button-row">
@@ -124,6 +135,7 @@ export function LaserScanDemo({ ros, viewer }) {
             maxRange: draft.maxRange ? Number.parseFloat(draft.maxRange) : null,
             fixedFrame: draft.fixedFrame,
             useTf: draft.useTf,
+            pool: draft.pool,
           })}
         >
           Apply

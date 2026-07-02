@@ -3,8 +3,8 @@ import { MarkerArrayClient } from 'ros2-web2d';
 import { addMetricBackdrop, centerMetricView, createDemoRoot, removeDemoRoot } from '../lib/ros2dHelpers.js';
 
 export function MarkerArrayDemo({ ros, viewer }) {
-  const [draftTopic, setDraftTopic] = useState('/markers');
-  const [topic, setTopic] = useState('/markers');
+  const [draft, setDraft] = useState({ topic: '/markers', pool: false });
+  const [settings, setSettings] = useState({ topic: '/markers', pool: false });
   const [status, setStatus] = useState('Waiting for marker arrays');
 
   useEffect(() => {
@@ -18,12 +18,13 @@ export function MarkerArrayDemo({ ros, viewer }) {
 
     const client = new MarkerArrayClient({
       ros,
-      topic,
+      topic: settings.topic,
       rootObject: root,
+      pool: settings.pool,
     });
 
     const handleChange = () => {
-      setStatus(`Latest MarkerArray rendered from ${topic}`);
+      setStatus(`Latest MarkerArray rendered from ${settings.topic}`);
     };
 
     client.on('change', handleChange);
@@ -33,7 +34,7 @@ export function MarkerArrayDemo({ ros, viewer }) {
       client.unsubscribe();
       removeDemoRoot(viewer, root);
     };
-  }, [ros, topic, viewer]);
+  }, [ros, settings, viewer]);
 
   return (
     <div className="demo-card">
@@ -49,12 +50,23 @@ export function MarkerArrayDemo({ ros, viewer }) {
       <div className="control-grid">
         <label className="field">
           <span>Topic</span>
-          <input value={draftTopic} onChange={(event) => setDraftTopic(event.target.value)} />
+          <input
+            value={draft.topic}
+            onChange={(event) => setDraft({ ...draft, topic: event.target.value })}
+          />
+        </label>
+        <label className="toggle-field">
+          <input
+            type="checkbox"
+            checked={draft.pool}
+            onChange={(event) => setDraft({ ...draft, pool: event.target.checked })}
+          />
+          <span>Shared subscription pool</span>
         </label>
       </div>
 
       <div className="button-row">
-        <button className="primary-button" onClick={() => setTopic(draftTopic)}>
+        <button className="primary-button" onClick={() => setSettings({ ...draft })}>
           Apply
         </button>
       </div>

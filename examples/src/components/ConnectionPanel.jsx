@@ -6,6 +6,7 @@ export function ConnectionPanel(props) {
     connect,
     disconnect,
     lastError,
+    wireOps,
   } = props;
 
   return (
@@ -36,6 +37,13 @@ export function ConnectionPanel(props) {
       <p className="helper-text">
         The ROS-backed demos use this connection. The ImageMap asset demo works without rosbridge.
       </p>
+
+      {wireOps ? (
+        <p className="helper-text">
+          Wire subscriptions: {wireOps.subscribes - wireOps.unsubscribes}
+          {' '}(▲{wireOps.subscribes} ▼{wireOps.unsubscribes})
+        </p>
+      ) : null}
 
       {lastError ? <p className="error-text">{lastError}</p> : null}
     </section>

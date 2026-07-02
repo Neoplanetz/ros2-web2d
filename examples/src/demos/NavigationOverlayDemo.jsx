@@ -17,6 +17,7 @@ export function NavigationOverlayDemo({ ros, viewer }) {
     poseArrayTopic: '/particlecloud',
     fixedFrame: 'map',
     useTf: false,
+    pool: false,
   });
   const [settings, setSettings] = useState({
     pathTopic: '/path',
@@ -25,6 +26,7 @@ export function NavigationOverlayDemo({ ros, viewer }) {
     poseArrayTopic: '/particlecloud',
     fixedFrame: 'map',
     useTf: false,
+    pool: false,
   });
   const [status, setStatus] = useState('Waiting for path and pose overlays');
 
@@ -45,6 +47,7 @@ export function NavigationOverlayDemo({ ros, viewer }) {
       tfClient,
       strokeSize: 0.05,
       strokeColor: '#4069c7',
+      pool: settings.pool,
     });
     const poseClient = new PoseStampedClient({
       ros,
@@ -55,6 +58,7 @@ export function NavigationOverlayDemo({ ros, viewer }) {
         size: 0.7,
         fillColor: createjs.Graphics.getRGB(33, 148, 88),
       }),
+      pool: settings.pool,
     });
     const odomClient = new OdometryClient({
       ros,
@@ -65,6 +69,7 @@ export function NavigationOverlayDemo({ ros, viewer }) {
         size: 0.55,
         fillColor: createjs.Graphics.getRGB(211, 111, 46),
       }),
+      pool: settings.pool,
     });
     const poseArrayClient = new PoseArrayClient({
       ros,
@@ -74,6 +79,7 @@ export function NavigationOverlayDemo({ ros, viewer }) {
       size: 0.18,
       fillColor: createjs.Graphics.getRGB(125, 64, 188, 0.45),
       strokeSize: 0,
+      pool: settings.pool,
     });
 
     const handleChange = () => {
@@ -153,6 +159,14 @@ export function NavigationOverlayDemo({ ros, viewer }) {
             onChange={(event) => setDraft({ ...draft, useTf: event.target.checked })}
           />
           <span>Use TF</span>
+        </label>
+        <label className="toggle-field">
+          <input
+            type="checkbox"
+            checked={draft.pool}
+            onChange={(event) => setDraft({ ...draft, pool: event.target.checked })}
+          />
+          <span>Shared subscription pool</span>
         </label>
       </div>
 

@@ -147,7 +147,8 @@ input {
   color: #5c554a;
 }
 
-.field input {
+.field input,
+.field select {
   width: 100%;
   padding: 0.72rem 0.82rem;
   border: 1px solid rgba(35, 31, 25, 0.12);
@@ -273,6 +274,35 @@ input {
 .error-text {
   margin-top: 0.9rem;
   color: #972d20;
+}
+
+.wire-log {
+  margin-top: 1.1rem;
+}
+
+.wire-log ul {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0.6rem 0.8rem;
+  max-height: 180px;
+  overflow-y: auto;
+  background: rgba(35, 31, 25, 0.04);
+  border-radius: 14px;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+}
+
+.wire-log li {
+  padding: 0.12rem 0;
+  color: #5c554a;
+}
+
+.wire-log li.op-subscribe strong {
+  color: #1f8f57;
+}
+
+.wire-log li.op-unsubscribe strong {
+  color: #d43f27;
 }
 
 @media (max-width: 980px) {

@@ -44,9 +44,31 @@ ros2 topic pub /markers visualization_msgs/msg/MarkerArray \
 
 Open the `MarkerArrayClient` demo, toggle **Use TF** on in the Navigation Overlays demo, and change the static transform's `--x`/`--y` — the overlays follow when TF is enabled and stay put when it is off.
 
+## Shared subscription pool demo (v1.11.x)
+
+The **Shared Subscription Pool** demo puts N `PoseStampedClient`s (1–5) on one
+topic and makes the library's `pool: true` option observable: the connection is
+instrumented at `ros.callOnConnection`, so every real `subscribe` /
+`unsubscribe` op sent to rosbridge shows up in the demo's wire-op log and in
+the per-topic count line (no publisher required — subscribe ops flow even on a
+silent topic). Things to watch:
+
+- **Dedup** — with the pool ON, adding clients keeps the wire count at 1;
+  turning it OFF opens one subscription per client.
+- **Grace window** — the select drives `setTopicPoolGraceMs()`. With 5000 ms,
+  removing the last client shows the wire `unsubscribe` landing ~5 s later,
+  and re-adding within the window reuses the live subscription (no churn).
+- **Late-join replay** — add a client after a pose has arrived: its arrow
+  renders immediately from the pool's retained last message.
+
+The other subscribing demos each have a **Shared subscription pool** checkbox
+(default off = plain per-client subscriptions) that forwards `pool: true` to
+their client constructors; the **Wire subscriptions** readout in the
+connection panel shows the effect from any demo.
+
 ## Smoke test
 
-A Playwright suite under `smoke-test/` drives the five demos against a
+A Playwright suite under `smoke-test/` drives the demos against a
 running rosbridge and a `vite preview` build of this app. Useful as a
 regression guard after touching any client or helper in the library.
 

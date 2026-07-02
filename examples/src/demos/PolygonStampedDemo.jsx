@@ -11,6 +11,7 @@ export function PolygonStampedDemo({ ros, viewer }) {
     closed: true,
     fixedFrame: 'map',
     useTf: false,
+    pool: false,
   });
   const [settings, setSettings] = useState({
     topic: '/local_costmap/published_footprint',
@@ -20,6 +21,7 @@ export function PolygonStampedDemo({ ros, viewer }) {
     closed: true,
     fixedFrame: 'map',
     useTf: false,
+    pool: false,
   });
   const [status, setStatus] = useState('Waiting for PolygonStamped data');
 
@@ -42,6 +44,7 @@ export function PolygonStampedDemo({ ros, viewer }) {
       strokeSize: settings.strokeSize,
       fillColor: settings.fillColor || null,
       closed: settings.closed,
+      pool: settings.pool,
     });
 
     const handleChange = () => {
@@ -125,6 +128,14 @@ export function PolygonStampedDemo({ ros, viewer }) {
           />
           <span>Use TF</span>
         </label>
+        <label className="toggle-field">
+          <input
+            type="checkbox"
+            checked={draft.pool}
+            onChange={(event) => setDraft({ ...draft, pool: event.target.checked })}
+          />
+          <span>Shared subscription pool</span>
+        </label>
       </div>
 
       <div className="button-row">
@@ -138,6 +149,7 @@ export function PolygonStampedDemo({ ros, viewer }) {
             closed: draft.closed,
             fixedFrame: draft.fixedFrame,
             useTf: draft.useTf,
+            pool: draft.pool,
           })}
         >
           Apply

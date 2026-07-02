@@ -211,6 +211,65 @@ test.describe('ros2djs-ros2 smoke test (live rosbridge)', () => {
     expect(criticalErrors, `errors:\n${criticalErrors.join('\n')}`).toHaveLength(0);
   });
 
+  test('Shared Subscription Pool: pool:true dedups wire subscriptions', async ({ page }) => {
+    const logs = collectConsole(page);
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' });
+    await page.waitForLoadState('load');
+    await waitForConnection(page);
+
+    await clickDemo(page, 'Shared Subscription Pool');
+
+    // Grace 0 → wire unsubscribes land immediately, so the per-topic counts
+    // below are deterministic. Note: the count line reflects real subscribe /
+    // unsubscribe ops sent to rosbridge — no publisher needed on the topic.
+    await page
+      .locator('label.field', { hasText: 'Grace window' })
+      .locator('select')
+      .selectOption('0');
+
+    await setField(page, 'Topic', TOPICS.pose);
+    await clickApply(page);
+
+    const countLine = page.locator('.demo-card .pool-count');
+
+    // Default: 3 clients with pool ON share ONE wire subscription.
+    await expect(countLine).toContainText(
+      `clients: 3 · wire subscriptions on ${TOPICS.pose}: 1`,
+      { timeout: 15000 },
+    );
+
+    // Adding a 4th client must NOT add a wire subscription.
+    await page.getByRole('button', { name: /Add client/ }).click();
+    await expect(countLine).toContainText(
+      `clients: 4 · wire subscriptions on ${TOPICS.pose}: 1`,
+    );
+
+    // Pool OFF: every client opens its own subscription.
+    await page
+      .locator('label.toggle-field', { hasText: 'Shared subscription pool' })
+      .locator('input')
+      .uncheck();
+    await expect(countLine).toContainText(
+      `clients: 4 · wire subscriptions on ${TOPICS.pose}: 4`,
+    );
+
+    // Pool back ON: dedup returns to one.
+    await page
+      .locator('label.toggle-field', { hasText: 'Shared subscription pool' })
+      .locator('input')
+      .check();
+    await expect(countLine).toContainText(
+      `clients: 4 · wire subscriptions on ${TOPICS.pose}: 1`,
+    );
+
+    await page.screenshot({ path: 'smoke-test/screenshots/07-shared-pool.png', fullPage: true });
+
+    const criticalErrors = logs.filter(l =>
+      l.includes('[pageerror]') || l.includes('Must call super constructor')
+    );
+    expect(criticalErrors, `critical errors:\n${criticalErrors.join('\n')}`).toHaveLength(0);
+  });
+
   test('RotateView: right-drag rotates stage around pivot', async ({ page }) => {
     const logs = collectConsole(page);
     await page.goto(BASE, { waitUntil: 'domcontentloaded' });
