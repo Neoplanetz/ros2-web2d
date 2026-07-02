@@ -9,6 +9,8 @@ jobs:
   docs:
     name: Docs Deployment
     runs-on: ubuntu-latest
+    permissions:
+      contents: write     # let GITHUB_TOKEN push the built docs to gh-pages
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -22,7 +24,7 @@ jobs:
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v4
         with:
-          github_token: ${{ secrets.RWT_BOT_PAT }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: doc
           destination_dir: .
           enable_jekyll: false
