@@ -26728,7 +26728,7 @@ function _poolKey(name, messageType, options) {
     options.queue_length,
     options.compression,
     options.reconnect_on_close
-  ].join(' ');
+  ].join(' ');
 }
 
 // Construct the single real ROSLIB.Topic. This is the pre-pool behavior of
