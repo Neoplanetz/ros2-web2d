@@ -24,7 +24,7 @@ export class SceneNode extends createjs.Container {
     pose: any;
     _latestTf: any;
     _onTF: (transform: any) => void;
-    _warnTimer: NodeJS.Timeout;
+    _warnTimer: number;
     /**
      * Compose this.pose with this._latestTf and write the result to x/y/rotation.
      * Y is negated here and here only so children render in ROS coordinates.
