@@ -3,6 +3,7 @@ name: Docs Deployment
 on:
   release:
     types: [released]
+  workflow_dispatch:      # allow manual re-deploy of docs from the default branch
 
 jobs:
   docs:
@@ -26,4 +27,4 @@ jobs:
           destination_dir: .
           enable_jekyll: false
           force_orphan: false  # So we keep the doc history
-          commit_message: JSDoc ${{ github.event.release.name }}
+          commit_message: JSDoc ${{ github.event.release.name || github.ref_name }}
