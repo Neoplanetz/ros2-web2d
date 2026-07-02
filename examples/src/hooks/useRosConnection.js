@@ -42,8 +42,17 @@ export function useRosConnection(initialUrl) {
     const nextRos = new ROSLIB.Ros({ url: request.url });
     // Fresh connection → fresh wire stats. The library's subscription pool is
     // keyed per-ros (WeakMap), so pool state and this readout reset together.
+    // `live` disarms this instance's wrapper once the effect is cleaned up: a
+    // replaced connection's clients still unsubscribe through the old wrapper
+    // during React cleanup (and pooled grace timers can fire long after), and
+    // roslib replays reconnect_on_close subscriptions on the old instance's
+    // close — none of which may touch the NEW connection's stats.
+    let live = true;
     setWireOps(EMPTY_WIRE_OPS);
     instrumentWireOps(nextRos, (message) => {
+      if (!live) {
+        return;
+      }
       setWireOps((prev) => {
         const isSubscribe = message.op === 'subscribe';
         const byTopic = { ...prev.byTopic };
@@ -72,6 +81,16 @@ export function useRosConnection(initialUrl) {
     };
     const handleClose = () => {
       setStatus('closed');
+      // On close the real wire state IS zero — and roslib immediately replays
+      // every reconnect_on_close subscription through callOnConnection (its
+      // topic close-handlers were registered after ours, so they fire after
+      // this reset and get counted fresh). Without the reset those replays
+      // would inflate the counts by one per topic per close. Guarded on
+      // `live`: a replaced instance's late close must not wipe counts the
+      // new connection already accumulated.
+      if (live) {
+        setWireOps(EMPTY_WIRE_OPS);
+      }
     };
     const handleError = (error) => {
       setStatus('error');
@@ -83,6 +102,9 @@ export function useRosConnection(initialUrl) {
     nextRos.on('error', handleError);
 
     return () => {
+      // Disarm BEFORE closing: close triggers roslib's subscribe replays and
+      // the demos' teardown unsubscribes on this old instance.
+      live = false;
       nextRos.close();
     };
   }, [request]);
