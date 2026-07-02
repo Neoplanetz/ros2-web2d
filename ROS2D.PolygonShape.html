@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Class: PolygonShape</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Class: PolygonShape</h1>
+
+    
+
+
+
+
+<section>
+
+<header>
+    
+        <h2><span class="attribs"><span class="type-signature"></span></span>PolygonShape<span class="signature">(options)</span><span class="type-signature"></span></h2>
+        
+    
+</header>
+
+<article>
+    <div class="container-overview">
+    
+        
+
+    
+
+    
+    <h4 class="name" id="PolygonShape"><span class="type-signature"></span>new PolygonShape<span class="signature">(options)</span><span class="type-signature"></span></h4>
+    
+
+    
+
+
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>options</code></td>
+            
+
+            <td class="type">
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>object with following keys:</p>
+<ul>
+<li>strokeSize (optional) - outline width in meters (default 0.03)</li>
+<li>strokeColor (optional) - createjs color for the outline
+(default red)</li>
+<li>fillColor (optional) - createjs color for the fill, or null /
+undefined for no fill (default null)</li>
+<li>closed (optional) - draw the closing segment back to the first
+vertex (default true). Set false to render a polyline.</li>
+<li>negateY (optional) - negate Y when drawing directly in canvas
+coordinates (default true). Set false when the shape is
+wrapped in a ROS2D.SceneNode that already applies the TF Y
+handling.</li>
+</ul></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="models_PolygonShape.js.html">models/PolygonShape.js</a>, <a href="models_PolygonShape.js.html#line26">line 26</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+        <h3 class="subsection-title">Methods</h3>
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="setPolygon"><span class="type-signature"></span>setPolygon<span class="signature">(points)</span><span class="type-signature"></span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    <p>Redraw the polygon from the given vertex list.</p>
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>points</code></td>
+            
+
+            <td class="type">
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>array of objects with numeric x and y fields. A z
+field is ignored (this is a 2D shape). Empty or missing input
+clears the graphics.</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="models_PolygonShape.js.html">models/PolygonShape.js</a>, <a href="models_PolygonShape.js.html#line46">line 46</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+    
+
+    
+
+    
+</article>
+
+</section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="clients_LaserScanClient.js.html">clients/LaserScanClient.js</a></li><li><a href="clients_OdometryClient.js.html">clients/OdometryClient.js</a></li><li><a href="clients_PathClient.js.html">clients/PathClient.js</a></li><li><a href="clients_PolygonStampedClient.js.html">clients/PolygonStampedClient.js</a></li><li><a href="clients_PoseArrayClient.js.html">clients/PoseArrayClient.js</a></li><li><a href="clients_PoseStampedClient.js.html">clients/PoseStampedClient.js</a></li><li><a href="markers_MarkerArrayClient.js.html">markers/MarkerArrayClient.js</a></li><li><a href="ROS2D.ArrowShape.html">ArrowShape</a></li><li><a href="ROS2D.Axis.html">Axis</a></li><li><a href="ROS2D.Grid.html">Grid</a></li><li><a href="ROS2D.GridLines.html">GridLines</a></li><li><a href="ROS2D.ImageMap.html">ImageMap</a></li><li><a href="ROS2D.ImageMapClient.html">ImageMapClient</a></li><li><a href="ROS2D.LaserScanShape.html">LaserScanShape</a></li><li><a href="ROS2D.Marker.html">Marker</a></li><li><a href="ROS2D.NavigationArrow.html">NavigationArrow</a></li><li><a href="ROS2D.NavigationImage.html">NavigationImage</a></li><li><a href="ROS2D.OccupancyGrid.html">OccupancyGrid</a></li><li><a href="ROS2D.OccupancyGridClient.html">OccupancyGridClient</a></li><li><a href="ROS2D.OccupancyGridSrvClient.html">OccupancyGridSrvClient</a></li><li><a href="ROS2D.PanView.html">PanView</a></li><li><a href="ROS2D.PathShape.html">PathShape</a></li><li><a href="ROS2D.PolygonMarker.html">PolygonMarker</a></li><li><a href="ROS2D.PolygonShape.html">PolygonShape</a></li><li><a href="ROS2D.PoseInteractionView.html">PoseInteractionView</a></li><li><a href="ROS2D.RotateView.html">RotateView</a></li><li><a href="ROS2D.TraceShape.html">TraceShape</a></li><li><a href="ROS2D.Viewer.html">Viewer</a></li><li><a href="ROS2D.ZoomView.html">ZoomView</a></li><li><a href="visualization_SceneNode.js.html">visualization/SceneNode.js</a></li></ul><h3>Global</h3><ul><li><a href="global.html#REVISION">REVISION</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 3.6.11</a> on Thu Jul 02 2026 02:12:37 GMT+0000 (Coordinated Universal Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>
