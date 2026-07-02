@@ -8,6 +8,7 @@ import { MarkerArrayDemo } from './demos/MarkerArrayDemo.jsx';
 import { LaserScanDemo } from './demos/LaserScanDemo.jsx';
 import { PolygonStampedDemo } from './demos/PolygonStampedDemo.jsx';
 import { NavigationOverlayDemo } from './demos/NavigationOverlayDemo.jsx';
+import { SharedPoolDemo } from './demos/SharedPoolDemo.jsx';
 
 const DEMOS = [
   {
@@ -46,6 +47,12 @@ const DEMOS = [
     summary: 'Compose path, pose, odometry, and particle cloud overlays together.',
     render: (props) => <NavigationOverlayDemo {...props} />,
   },
+  {
+    key: 'shared-pool',
+    label: 'Shared Subscription Pool',
+    summary: 'N clients on one topic share ONE wire subscription (pool: true) — watch live wire ops.',
+    render: (props) => <SharedPoolDemo {...props} />,
+  },
 ];
 
 export default function App() {
@@ -59,6 +66,7 @@ export default function App() {
     connect,
     disconnect,
     lastError,
+    wireOps,
   } = useRosConnection('ws://localhost:9090');
 
   const activeDemo = DEMOS.find((demo) => demo.key === activeDemoKey) || DEMOS[0];
@@ -82,6 +90,7 @@ export default function App() {
           connect={connect}
           disconnect={disconnect}
           lastError={lastError}
+          wireOps={wireOps}
         />
 
         <section className="panel">
@@ -116,7 +125,7 @@ export default function App() {
           </div>
         </section>
 
-        {activeDemo.render({ ros, viewer })}
+        {activeDemo.render({ ros, viewer, wireOps })}
 
         <ViewerStage setViewer={setViewer} />
       </main>

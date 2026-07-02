@@ -13,8 +13,8 @@ const COLORIZER_OPTIONS = [
 ];
 
 export function OccupancyGridDemo({ ros, viewer }) {
-  const [draft, setDraft] = useState({ topic: '/map', continuous: true, colorizer: 'map' });
-  const [settings, setSettings] = useState({ topic: '/map', continuous: true, colorizer: 'map' });
+  const [draft, setDraft] = useState({ topic: '/map', continuous: true, colorizer: 'map', pool: false });
+  const [settings, setSettings] = useState({ topic: '/map', continuous: true, colorizer: 'map', pool: false });
   const [status, setStatus] = useState('Waiting for map data');
 
   useEffect(() => {
@@ -32,6 +32,7 @@ export function OccupancyGridDemo({ ros, viewer }) {
       continuous: settings.continuous,
       colorizer: settings.colorizer,
       rootObject: root,
+      pool: settings.pool,
     });
 
     const handleChange = () => {
@@ -88,6 +89,14 @@ export function OccupancyGridDemo({ ros, viewer }) {
             onChange={(event) => setDraft({ ...draft, continuous: event.target.checked })}
           />
           <span>Continuous updates</span>
+        </label>
+        <label className="toggle-field">
+          <input
+            type="checkbox"
+            checked={draft.pool}
+            onChange={(event) => setDraft({ ...draft, pool: event.target.checked })}
+          />
+          <span>Shared subscription pool</span>
         </label>
       </div>
 
