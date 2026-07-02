@@ -34,9 +34,9 @@ export class PoseInteractionView {
      *       commit `yaw === undefined` (default 10)
      *   * enabled (optional) - if false, listeners are not attached on
      *       construction; call enable() later (default true)
-     *   * onCommit (optional) - function({ x, y, yaw }) called on every
-     *       release. `yaw` is in radians (CCW from +X); `undefined` when
-     *       the drag distance was below `dragThresholdPx` (i.e. a tap).
+     *   * onCommit (optional) - callback invoked with an (x, y, yaw) object
+     *       on every release. `yaw` is in radians (CCW from +X); `undefined`
+     *       when the drag distance was below `dragThresholdPx` (i.e. a tap).
      */
     constructor(options: any);
     viewer: any;

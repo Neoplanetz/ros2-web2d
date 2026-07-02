@@ -28843,7 +28843,7 @@ var PolygonShape = /*@__PURE__*/(function (superclass) {
   };
   /**
    * @private
-   * @param point - candidate {x, y} vertex
+   * @param point - candidate (x, y) vertex
    * @returns {boolean} true when both coordinates are finite numbers
    */
   PolygonShape.prototype._isValidPoint = function _isValidPoint (point) {
