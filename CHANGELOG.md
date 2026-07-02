@@ -3,6 +3,33 @@
 All notable changes to this project are documented here.
 The project follows [Semantic Versioning](https://semver.org/).
 
+## [1.11.1] — 2026-07-02
+
+### Fixed
+
+- **Shared subscription pool: a repeated `unsubscribe()` on a pooled handle could
+  break dedup and leak the wire subscription.** A handle whose `unsubscribe()`
+  is called more than once — which a non-continuous `OccupancyGridClient` does
+  naturally (auto-unsubscribe on the first message, then a later user teardown)
+  — scheduled a second, un-cancellable grace timer and dropped the reference to
+  the first. If another consumer re-acquired the same topic during the grace
+  window, the stale timer could evict the rebuilt pool entry, so a subsequent
+  acquire opened a duplicate `ROSLIB.Topic` (dedup silently broken) and the
+  evicted entry's subscription was never torn down (leak). `unsubscribe()` now
+  arms teardown only when the entry is idle **and** not already draining, and
+  teardown only evicts the map slot when it still points at that same entry.
+
+- **Shared subscription pool: two pooled handles sharing one callback function
+  were not independent.** Consumers were keyed by callback identity in a `Set`,
+  so `h1.subscribe(cb); h2.subscribe(cb); h1.unsubscribe()` removed the shared
+  `cb` and silently detached `h2`. Each `subscribe()` now records a distinct
+  per-subscribe consumer, so handles stay independent regardless of the callback
+  passed. (Not reachable through the built-in Clients, which each pass a private
+  closure; a correctness fix for direct pool use.)
+
+Both issues were found by an independent Codex review of the 1.11.0 pool and are
+covered by new regression tests in `test/util/topicHelper.test.js`.
+
 ## [1.11.0] — 2026-07-02
 
 ### Added

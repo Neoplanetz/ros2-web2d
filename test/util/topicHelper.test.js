@@ -247,3 +247,92 @@ describe('ROS2D._makeTopic — shared pool consumer isolation', () => {
     expect(() => h.unsubscribe()).not.toThrow();
   });
 });
+
+// ─── v1.11.1: teardown identity under double-unsubscribe ───────────────────
+// A handle can have unsubscribe() called more than once (e.g. a non-continuous
+// OccupancyGridClient auto-unsubscribes on the first message, then a later
+// user teardown calls unsubscribe() again). A second unsubscribe while the
+// entry is already draining must NOT schedule a second, un-cancellable grace
+// timer, and a stale timer must never evict a rebuilt same-key entry.
+describe('ROS2D._makeTopic — shared pool teardown identity (double-unsubscribe)', () => {
+  beforeEach(() => { vi.useFakeTimers(); });
+  afterEach(() => { vi.useRealTimers(); });
+
+  it('double unsubscribe + re-acquire keeps dedup intact and does not leak the topic', () => {
+    const ros = new fake.ROSLIB.Ros();
+    const h1 = ROS2D._makeTopic(ros, '/t', 'T', { pool: true }); h1.subscribe(() => {});
+    const real1 = fake.topics[0];
+    h1.unsubscribe();               // schedule teardown (T1)
+    vi.advanceTimersByTime(2000);
+    h1.unsubscribe();               // second unsubscribe while draining — must stay safe
+    vi.advanceTimersByTime(3000);   // t=5000 → real1 torn down
+    expect(real1._subs).toHaveLength(0);
+
+    const h2 = ROS2D._makeTopic(ros, '/t', 'T', { pool: true }); h2.subscribe(() => {});
+    const real2 = fake.topics[1];
+    vi.advanceTimersByTime(5000);   // any stale timer must NOT evict h2's live entry
+
+    // dedup intact: a further acquire on the same key reuses h2's entry (no 3rd topic)
+    const h3 = ROS2D._makeTopic(ros, '/t', 'T', { pool: true }); h3.subscribe(() => {});
+    expect(fake.topics.length).toBe(2);
+
+    // no leak: once every consumer leaves, real2 tears down after grace
+    h2.unsubscribe(); h3.unsubscribe();
+    vi.advanceTimersByTime(5000);
+    expect(real2._subs).toHaveLength(0);
+  });
+
+  it('a second unsubscribe while draining does not reschedule the teardown timer', () => {
+    const ros = new fake.ROSLIB.Ros();
+    const h = ROS2D._makeTopic(ros, '/t', 'T', { pool: true }); h.subscribe(() => {});
+    const real = fake.topics[0];
+    h.unsubscribe();                // teardown at t=5000
+    vi.advanceTimersByTime(1000);
+    h.unsubscribe();                // must NOT push teardown out to t=6000
+    vi.advanceTimersByTime(4000);   // t=5000 → original teardown fires
+    expect(real._subs).toHaveLength(0);
+  });
+});
+
+// ─── v1.11.1: consumer identity is per-subscribe, not per-callback ─────────
+describe('ROS2D._makeTopic — shared pool consumer identity (shared callback)', () => {
+  it('two handles using the SAME callback are independent', () => {
+    const ros = new fake.ROSLIB.Ros();
+    const shared = vi.fn();
+    const h1 = ROS2D._makeTopic(ros, '/t', 'T', { pool: true }); h1.subscribe(shared);
+    const h2 = ROS2D._makeTopic(ros, '/t', 'T', { pool: true }); h2.subscribe(shared);
+    h1.unsubscribe();               // must not detach h2's subscription
+    fake.topics[0].__emit({ n: 1 });
+    expect(shared).toHaveBeenCalledTimes(1); // h2 still receives
+    expect(shared).toHaveBeenCalledWith({ n: 1 });
+  });
+});
+
+// ─── v1.11.1: coverage gaps flagged by review ──────────────────────────────
+describe('ROS2D._makeTopic — shared pool key granularity + mid-dispatch (coverage)', () => {
+  it('different queue_length → separate underlying topics', () => {
+    const ros = new fake.ROSLIB.Ros();
+    ROS2D._makeTopic(ros, '/a', 'T', { pool: true, queue_length: 1 }).subscribe(() => {});
+    ROS2D._makeTopic(ros, '/a', 'T', { pool: true, queue_length: 10 }).subscribe(() => {});
+    expect(fake.topics.length).toBe(2);
+  });
+
+  it('different reconnect_on_close → separate underlying topics', () => {
+    const ros = new fake.ROSLIB.Ros();
+    ROS2D._makeTopic(ros, '/a', 'T', { pool: true, reconnect_on_close: true }).subscribe(() => {});
+    ROS2D._makeTopic(ros, '/a', 'T', { pool: true, reconnect_on_close: false }).subscribe(() => {});
+    expect(fake.topics.length).toBe(2);
+  });
+
+  it('a consumer unsubscribing during dispatch does not starve its siblings', () => {
+    const ros = new fake.ROSLIB.Ros();
+    const got = [];
+    const hA = ROS2D._makeTopic(ros, '/t', 'T', { pool: true });
+    const hB = ROS2D._makeTopic(ros, '/t', 'T', { pool: true });
+    hA.subscribe(() => { got.push('A'); hA.unsubscribe(); }); // self-detach mid-dispatch
+    hB.subscribe(() => { got.push('B'); });
+    fake.topics[0].__emit({ n: 1 });
+    expect(got).toContain('A');
+    expect(got).toContain('B');
+  });
+});
