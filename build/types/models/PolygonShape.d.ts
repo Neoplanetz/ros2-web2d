@@ -39,7 +39,7 @@ export class PolygonShape extends createjs.Shape {
     setPolygon(points: any): void;
     /**
      * @private
-     * @param point - candidate {x, y} vertex
+     * @param point - candidate (x, y) vertex
      * @returns {boolean} true when both coordinates are finite numbers
      */
     private _isValidPoint;

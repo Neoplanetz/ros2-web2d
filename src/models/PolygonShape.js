@@ -85,7 +85,7 @@ ROS2D.PolygonShape.prototype.setPolygon = function(points) {
 
 /**
  * @private
- * @param point - candidate {x, y} vertex
+ * @param point - candidate (x, y) vertex
  * @returns {boolean} true when both coordinates are finite numbers
  */
 ROS2D.PolygonShape.prototype._isValidPoint = function(point) {
