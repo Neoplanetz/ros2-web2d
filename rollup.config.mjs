@@ -1,17 +1,17 @@
-const rollup = require('rollup');
+import { createRequire } from 'node:module';
 
 // plugin that transpiles output into commonjs format
-const commonjs = require('@rollup/plugin-commonjs');
+import commonjs from '@rollup/plugin-commonjs';
 // plugin that transpiles es6 to es5 for legacy platforms
-const buble = require('@rollup/plugin-buble');
+import buble from '@rollup/plugin-buble';
 // plugin that shows output file info
-const filesize = require('rollup-plugin-filesize');
+import filesize from 'rollup-plugin-filesize';
 /// plugin that resolves node module imports
-const { nodeResolve } = require('@rollup/plugin-node-resolve');
+import { nodeResolve } from '@rollup/plugin-node-resolve';
 // plugin that minifies and obfuscates code
-const { terser } = require('rollup-plugin-terser');
+import terser from '@rollup/plugin-terser';
 
-const pkg = require('./package.json');
+const pkg = createRequire(import.meta.url)('./package.json');
 const input = 'src-esm/index.js';
 
 const browserGlobals = {

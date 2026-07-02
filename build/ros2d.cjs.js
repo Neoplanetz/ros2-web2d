@@ -1,11 +1,8 @@
 'use strict';
 
-Object.defineProperty(exports, '__esModule', { value: true });
-
 var ROSLIB = require('roslib');
 
-function _interopNamespace(e) {
-	if (e && e.__esModule) return e;
+function _interopNamespaceDefault(e) {
 	var n = Object.create(null);
 	if (e) {
 		Object.keys(e).forEach(function (k) {
@@ -18,11 +15,11 @@ function _interopNamespace(e) {
 			}
 		});
 	}
-	n["default"] = e;
+	n.default = e;
 	return Object.freeze(n);
 }
 
-var ROSLIB__namespace = /*#__PURE__*/_interopNamespace(ROSLIB);
+var ROSLIB__namespace = /*#__PURE__*/_interopNamespaceDefault(ROSLIB);
 
 var commonjsGlobal = typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
 
@@ -12828,7 +12825,7 @@ function requireCreatejs () {
 				this._multiplyMatrix([
 					lumR+cosVal*(1-lumR)+sinVal*(-lumR),lumG+cosVal*(-lumG)+sinVal*(-lumG),lumB+cosVal*(-lumB)+sinVal*(1-lumB),0,0,
 					lumR+cosVal*(-lumR)+sinVal*(0.143),lumG+cosVal*(1-lumG)+sinVal*(0.140),lumB+cosVal*(-lumB)+sinVal*(-0.283),0,0,
-					lumR+cosVal*(-lumR)+sinVal*(-(1-lumR)),lumG+cosVal*(-lumG)+sinVal*(lumG),lumB+cosVal*(1-lumB)+sinVal*(lumB),0,0,
+					lumR+cosVal*(-lumR)+sinVal*(-0.787),lumG+cosVal*(-lumG)+sinVal*(lumG),lumB+cosVal*(1-lumB)+sinVal*(lumB),0,0,
 					0,0,0,1,0,
 					0,0,0,0,1
 				]);
@@ -13539,9 +13536,6 @@ function requireCreatejs () {
 
 		}());
 (function () {
-		  // Detect the `define` function exposed by asynchronous module loaders. The
-		  // strict `define` check is necessary for compatibility with `r.js`.
-		  var isLoader = typeof undefined === "function" ;
 
 		  // A set of types used to distinguish objects from primitives.
 		  var objectTypes = {
@@ -14403,7 +14397,7 @@ function requireCreatejs () {
 		    return exports;
 		  }
 
-		  if (freeExports && !isLoader) {
+		  if (freeExports && true) {
 		    // Export for CommonJS environments.
 		    runInContext(root, freeExports);
 		  } else {
@@ -26959,8 +26953,6 @@ var ImageMap = /*@__PURE__*/(function (superclass) {
 
 var eventemitter3 = {exports: {}};
 
-eventemitter3.exports;
-
 var hasRequiredEventemitter3;
 
 function requireEventemitter3 () {
@@ -29363,7 +29355,7 @@ var Marker = /*@__PURE__*/(function (superclass) {
     var color = message.color || { r: 1, g: 1, b: 1, a: 1 };
     var scale = message.scale || { x: 1, y: 1, z: 1 };
     var pose = message.pose || {
-      position: { x: 0, y: 0, z: 0 },
+      position: { x: 0, y: 0},
       orientation: { x: 0, y: 0, z: 0, w: 1 }
     };
     var points = message.points || [];
