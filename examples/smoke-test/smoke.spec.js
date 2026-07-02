@@ -262,6 +262,35 @@ test.describe('ros2djs-ros2 smoke test (live rosbridge)', () => {
       `clients: 4 · wire subscriptions on ${TOPICS.pose}: 1`,
     );
 
+    // Reconnect with a 5000 ms grace window: the replaced connection still
+    // owes a deferred pooled unsubscribe (its grace timer) and roslib replays
+    // its subscription on the old instance's close — neither may leak into
+    // the fresh connection's stats.
+    await page
+      .locator('label.field', { hasText: 'Grace window' })
+      .locator('select')
+      .selectOption('5000');
+    await page.getByRole('button', { name: /^Connect$/ }).click();
+    await waitForConnection(page);
+    // Let the old instance's close-replay land before sampling the count: a
+    // stale-wrapper leak would show 0 (teardown counted) or 2 (replay counted)
+    // instead of exactly the fresh pooled subscription. The short expect
+    // timeouts are deliberate — a retrying default-timeout assertion would
+    // wait out the contamination window (the old grace timer "corrects" a
+    // leaked 2 back to 1 at ~5 s) and mask the regression.
+    await page.waitForTimeout(1500);
+    await expect(countLine).toContainText(
+      `clients: 4 · wire subscriptions on ${TOPICS.pose}: 1`,
+      { timeout: 1000 },
+    );
+    // The old pooled entry's grace timer fires ~5 s after the reconnect; a
+    // stale-wrapper leak would drop the fresh count from 1 to 0 here.
+    await page.waitForTimeout(6000);
+    await expect(countLine).toContainText(
+      `clients: 4 · wire subscriptions on ${TOPICS.pose}: 1`,
+      { timeout: 1000 },
+    );
+
     await page.screenshot({ path: 'smoke-test/screenshots/07-shared-pool.png', fullPage: true });
 
     const criticalErrors = logs.filter(l =>
