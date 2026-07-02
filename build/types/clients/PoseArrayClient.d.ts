@@ -38,7 +38,12 @@ export class PoseArrayClient extends EventEmitter<string | symbol, any> {
     tfClient: any;
     node: SceneNode;
     container: createjs.Container;
-    rosTopic: import("roslib").Topic<unknown>;
+    rosTopic: {
+        name: any;
+        messageType: any;
+        subscribe: (cb: any) => void;
+        unsubscribe: () => void;
+    } | import("roslib").Topic<unknown>;
     /**
      * Render a single geometry_msgs/PoseArray message: rebuild the arrow set
      * (lazily wrapping the managed container in a SceneNode when a tfClient is

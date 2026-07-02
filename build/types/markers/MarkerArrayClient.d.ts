@@ -39,7 +39,12 @@ export class MarkerArrayClient extends EventEmitter<string | symbol, any> {
     tfClient: any;
     rvizOrder: boolean;
     markers: {};
-    rosTopic: import("roslib").Topic<unknown>;
+    rosTopic: {
+        name: any;
+        messageType: any;
+        subscribe: (cb: any) => void;
+        unsubscribe: () => void;
+    } | import("roslib").Topic<unknown>;
     processMessage(message: any): void;
     _handleMarker(m: any): void;
     _typeRank(type: any): 2 | 1 | 0;

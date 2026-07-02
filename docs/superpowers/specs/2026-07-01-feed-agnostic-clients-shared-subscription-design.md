@@ -136,6 +136,55 @@ Additive → **v1.11.0** (separate cycle from P1).
 ### 4.7 Validation note
 After P1, omnifleet's hot-path layers subscribe via `subscribe:false` + `useTopic`, so they **bypass the pool**. P3 is therefore validated primarily by **this repo's own test suite** (+ omnifleet's `ArrowMarker`/`MarkerArray`, which still subscribe via Clients), NOT by omnifleet live smoke.
 
+### 4.8 Resolved decisions (P3 implementation session, 2026-07-02) — shipped in v1.11.0
+
+The §4.4 open decisions, resolved before coding and implemented in
+`src/util/topicHelper.js`:
+
+1. **Opt-in, not default-on.** A subscribe-only Client opts in with `pool: true`.
+   Omitting it leaves `_makeTopic` byte-for-byte unchanged (fresh `ROSLIB.Topic`,
+   immediate unsubscribe) — default-on would change `_makeTopic`'s return type
+   and teardown timing for every existing consumer. Sharing is scoped **per
+   `ros` connection** via a module-level `WeakMap<ros, Map<key, entry>>` (a pool
+   is GC'd with its connection and test connections isolate automatically). An
+   explicit `TopicPool` handle was **deferred** (YAGNI): `pool: true` delivers
+   the dedup win at the lowest friction / surface / transpile risk.
+2. **Key = wire identity:** `name + messageType + throttle_rate + queue_length +
+   compression + reconnect_on_close`. Differing wire options → separate pooled
+   entries (a 100 ms vs 200 ms throttle are different subscriptions on the wire).
+   omnifleet's min-rate **coalescing was intentionally NOT ported** (extra churn
+   + complexity for marginal benefit).
+3. **Grace window = 5000 ms default,** configurable via the new public
+   `ROS2D.setTopicPoolGraceMs(ms)` (0 = immediate teardown). Long enough to
+   absorb unmount→remount churn (dodging the `rclpy destroy_subscription`
+   SIGSEGV race), shorter than omnifleet's 8000 ms so teardown is less laggy.
+4. **P1 interaction:** `subscribe: false` Clients never call `_makeTopic`, so
+   they never touch the pool — no special-casing. Locked by tests
+   (`subscribe:false` + `pool:true` → zero topics, zero pool entries).
+5. **Late-join replay (discovered, default on).** The pool retains the last
+   dispatched message and replays it synchronously to a consumer that joins an
+   already-live shared topic; the retained message is dropped on real teardown
+   so nothing stale replays after the wire subscription actually drops. Without
+   it a second `OccupancyGridClient` (latched map) joining after delivery would
+   never render — rosbridge re-latches only to a *new* subscription, but the
+   pool holds one shared one. Safe for ros2-web2d Clients (all render/state
+   consumers, none edge-triggered).
+
+**Simplifications (deliberately not ported from omnifleet):** no
+`SubscriptionRegistry` / restore-on-reconnect — the single shared `ROSLIB.Topic`
+already re-subscribes via `reconnect_on_close`, with the fan-out dispatcher
+still attached. **Added over a naive shared topic:** each consumer is dispatched
+in its own `try/catch` so one throwing Client cannot starve its siblings.
+
+**Public API surface added:** the `pool: true` Client option and
+`ROS2D.setTopicPoolGraceMs(ms)`. `_makeTopic` stays internal (clients import it
+transitively; only the setter is re-exported from the package entry).
+
+**Tests:** `test/util/topicHelper.test.js` (pool unit tests, teeth verified by
+mutation of grace / replay / clearTimeout / isolation) + pool integration
+blocks in `test/clients/PoseStampedClient.test.js` and
+`test/maps/OccupancyGridClient.test.js` (the latch-replay motivating case).
+
 ---
 
 ## 5. P5 — Docs hygiene (low effort, do alongside)

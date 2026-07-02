@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createFakeRoslib } from '../fakes/fakeRoslib.js';
 import EventEmitter from 'eventemitter3';
 
@@ -450,5 +450,59 @@ describe('OccupancyGridClient (subscribe:false / feed mode)', () => {
     expect(client.currentGrid).not.toBe(firstGrid);
     expect(root.children).not.toContain(firstGrid);
     expect(root.children.length).toBe(childCountAfterCtor);
+  });
+});
+
+// ─── shared subscription pool (P3): latched-map late-join replay ──────────
+// The motivating case for late-join replay. A non-continuous grid delivers the
+// map once then auto-unsubscribes, leaving the pooled subscription draining
+// (grace window) with the map retained. A grid that joins afterwards would,
+// without replay, never render — rosbridge would re-latch only to a NEW
+// subscription, but the pool holds a single shared one. Replay hands the
+// retained map to the newcomer, so the pooled grid behaves as if it held its
+// own latched subscription.
+describe('OccupancyGridClient + shared subscription pool (P3)', () => {
+  beforeEach(() => {
+    fake.topics.length = 0;
+    vi.useFakeTimers();
+    globalThis.ROS2D.setTopicPoolGraceMs(5000);
+  });
+  afterEach(() => { vi.useRealTimers(); });
+
+  function poolMapMsg() {
+    return {
+      header: { frame_id: 'map' },
+      info: {
+        width: 4, height: 4, resolution: 0.5,
+        origin: { position: { x: 0, y: 0, z: 0 }, orientation: { x: 0, y: 0, z: 0, w: 1 } },
+      },
+      data: new Array(16).fill(0),
+    };
+  }
+
+  it('two continuous grids on one topic with pool:true share ONE subscription', () => {
+    const ros = new fake.ROSLIB.Ros();
+    new globalThis.ROS2D.OccupancyGridClient({ ros, rootObject: new FakeContainer(), topic: '/map', continuous: true, pool: true });
+    new globalThis.ROS2D.OccupancyGridClient({ ros, rootObject: new FakeContainer(), topic: '/map', continuous: true, pool: true });
+    expect(fake.topics.length).toBe(1);
+  });
+
+  it('a late-joining grid renders the latched map via pool replay', () => {
+    const ros = new fake.ROSLIB.Ros();
+    const c1 = new globalThis.ROS2D.OccupancyGridClient({ ros, rootObject: new FakeContainer(), topic: '/map', pool: true });
+    const msg = poolMapMsg();
+    fake.topics[0].__emit(msg);          // c1 renders, then auto-unsubscribes (non-continuous)
+    expect(c1.lastMessage).toBe(msg);
+    // c2 joins after the one-shot delivery, while the subscription is draining.
+    const c2 = new globalThis.ROS2D.OccupancyGridClient({ ros, rootObject: new FakeContainer(), topic: '/map', pool: true });
+    expect(c2.lastMessage).toBe(msg);    // replay delivered the retained map
+    expect(fake.topics.length).toBe(1);  // the draining subscription was reused, not rebuilt
+  });
+
+  it('subscribe:false grid never touches the pool even with pool:true', () => {
+    const ros = new fake.ROSLIB.Ros();
+    const c = new globalThis.ROS2D.OccupancyGridClient({ ros, rootObject: new FakeContainer(), topic: '/map', subscribe: false, pool: true });
+    expect(fake.topics.length).toBe(0);
+    expect(c.rosTopic).toBeNull();
   });
 });

@@ -32,7 +32,12 @@ export class PathClient extends EventEmitter<string | symbol, any> {
     tfClient: any;
     pathShape: PathShape;
     node: SceneNode;
-    rosTopic: import("roslib").Topic<unknown>;
+    rosTopic: {
+        name: any;
+        messageType: any;
+        subscribe: (cb: any) => void;
+        unsubscribe: () => void;
+    } | import("roslib").Topic<unknown>;
     /**
      * Render a single nav_msgs/Path message through the managed PathShape (lazily
      * wrapping it in a SceneNode when a tfClient is set), then emit 'change'. This

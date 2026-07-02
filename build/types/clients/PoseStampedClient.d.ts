@@ -40,7 +40,12 @@ export class PoseStampedClient extends EventEmitter<string | symbol, any> {
     arrow: any;
     tfClient: any;
     node: SceneNode;
-    rosTopic: import("roslib").Topic<unknown>;
+    rosTopic: {
+        name: any;
+        messageType: any;
+        subscribe: (cb: any) => void;
+        unsubscribe: () => void;
+    } | import("roslib").Topic<unknown>;
     /**
      * Render a single geometry_msgs/PoseStamped message: position the managed
      * marker (Y negated, orientation via quaternionToGlobalTheta), or drive the

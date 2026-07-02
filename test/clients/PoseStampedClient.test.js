@@ -256,3 +256,52 @@ describe('ROS2D.PoseStampedClient', () => {
     expect(root.children).not.toContain(c.marker);
   });
 });
+
+// ─── shared subscription pool (P3, pool:true) ─────────────────────────────
+// Verifies the pool is transparent at the _makeTopic seam: no PoseStampedClient
+// code changed, yet pool:true dedups the wire subscription and both clients
+// still render. Also locks the P1 x P3 interaction (subscribe:false bypasses
+// the pool entirely).
+describe('ROS2D.PoseStampedClient + shared subscription pool', () => {
+  const poseMsg = (x, y) => ({ pose: { position: { x, y }, orientation: { x: 0, y: 0, z: 0, w: 1 } } });
+
+  it('two clients on the same topic with pool:true share ONE ROSLIB.Topic', () => {
+    const ros = new fake.ROSLIB.Ros();
+    new PoseStampedClient({ ros, rootObject: new FakeContainer(), topic: '/pose', pool: true });
+    new PoseStampedClient({ ros, rootObject: new FakeContainer(), topic: '/pose', pool: true });
+    expect(fake.topics.length).toBe(1);
+  });
+
+  it('both pooled clients render from the one shared subscription', () => {
+    const ros = new fake.ROSLIB.Ros();
+    const c1 = new PoseStampedClient({ ros, rootObject: new FakeContainer(), topic: '/pose', pool: true });
+    const c2 = new PoseStampedClient({ ros, rootObject: new FakeContainer(), topic: '/pose', pool: true });
+    fake.topics[0].__emit(poseMsg(4, 5));
+    expect(c1.marker.x).toBe(4); expect(c1.marker.y).toBe(-5);
+    expect(c2.marker.x).toBe(4); expect(c2.marker.y).toBe(-5);
+  });
+
+  it('without the pool option each client still opens its own topic (unchanged)', () => {
+    const ros = new fake.ROSLIB.Ros();
+    new PoseStampedClient({ ros, rootObject: new FakeContainer(), topic: '/pose' });
+    new PoseStampedClient({ ros, rootObject: new FakeContainer(), topic: '/pose' });
+    expect(fake.topics.length).toBe(2);
+  });
+
+  it('subscribe:false bypasses the pool entirely even with pool:true', () => {
+    const ros = new fake.ROSLIB.Ros();
+    const before = fake.topics.length;
+    const c = new PoseStampedClient({ ros, rootObject: new FakeContainer(), topic: '/pose', subscribe: false, pool: true });
+    expect(fake.topics.length).toBe(before);
+    expect(c.rosTopic).toBeNull();
+  });
+
+  it('one pooled client unsubscribing leaves the other subscribed and rendering', () => {
+    const ros = new fake.ROSLIB.Ros();
+    const c1 = new PoseStampedClient({ ros, rootObject: new FakeContainer(), topic: '/pose', pool: true });
+    const c2 = new PoseStampedClient({ ros, rootObject: new FakeContainer(), topic: '/pose', pool: true });
+    c1.unsubscribe();
+    fake.topics[0].__emit(poseMsg(9, 0));
+    expect(c2.marker.x).toBe(9);
+  });
+});
