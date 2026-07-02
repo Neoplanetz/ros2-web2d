@@ -117,15 +117,17 @@ function _reportConsumerError(err) {
 // Fan a single wire message out to every consumer of a pool entry. Retains the
 // message first (for late-join replay) and snapshots the consumer set so a
 // consumer that unsubscribes during its own callback (e.g. OccupancyGridClient
-// non-continuous auto-unsubscribe) cannot make a sibling get skipped.
+// non-continuous auto-unsubscribe) cannot make a sibling get skipped. Consumers
+// are per-subscribe records ({ cb }), not raw callbacks, so two handles passing
+// the same callback function stay independent.
 function _dispatch(entry, message) {
   entry.lastMessage = message;
   entry.hasLast = true;
   var list = [];
-  entry.consumers.forEach(function(cb) { list.push(cb); });
+  entry.consumers.forEach(function(consumer) { list.push(consumer); });
   for (var i = 0; i < list.length; i++) {
     try {
-      list[i](message);
+      list[i].cb(message);
     } catch (err) {
       _reportConsumerError(err);
     }
@@ -141,7 +143,13 @@ function _teardownEntry(poolMap, entry) {
   // pre-teardown message.
   entry.lastMessage = undefined;
   entry.hasLast = false;
-  poolMap.delete(entry.key);
+  // Only evict when the map still points at THIS entry. A grace timer that
+  // fires after the entry was already torn down (e.g. a duplicate timer from a
+  // repeated unsubscribe) must never delete a newer same-key entry rebuilt by
+  // a later acquire.
+  if (poolMap.get(entry.key) === entry) {
+    poolMap.delete(entry.key);
+  }
 }
 
 function _scheduleTeardown(poolMap, entry) {
@@ -192,8 +200,11 @@ function _acquirePooledTopic(ros, name, messageType, options) {
         clearTimeout(entry.drainTimer);
         entry.drainTimer = null;
       }
-      entry.consumers.add(cb);
-      myConsumers.push(cb);
+      // Per-subscribe record (not the raw cb) so this handle's registration is
+      // distinct even if another handle subscribed the same callback function.
+      var consumer = { cb: cb };
+      entry.consumers.add(consumer);
+      myConsumers.push(consumer);
       if (!entry.rosTopic) {
         // First consumer: build + subscribe the single shared topic with a
         // fan-out dispatcher.
@@ -223,7 +234,13 @@ function _acquirePooledTopic(ros, name, messageType, options) {
         entry.consumers.delete(myConsumers[i]);
       }
       myConsumers.length = 0;
-      if (entry.consumers.size === 0) {
+      // Only arm teardown when idle AND not already draining. A repeated
+      // unsubscribe (e.g. a non-continuous OccupancyGridClient auto-unsubscribes
+      // on first message, then a user teardown calls unsubscribe() again) must
+      // not schedule a second grace timer — that would orphan the first timer
+      // reference (it cannot be cancelled on re-acquire) and can tear the wrong
+      // entry down.
+      if (entry.consumers.size === 0 && entry.drainTimer === null) {
         _scheduleTeardown(poolMap, entry);
       }
     }
