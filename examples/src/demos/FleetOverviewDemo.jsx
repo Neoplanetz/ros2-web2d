@@ -130,7 +130,7 @@ export function FleetOverviewDemo({ ros, viewer }) {
           rootObject: overlayRoot,
           tfClient,
           shape: new NavigationArrow({
-            size: 0.5,
+            size: 0.9,
             strokeSize: 0,
             fillColor: createjs.Graphics.getRGB(color.r, color.g, color.b, 0.45),
           }),
@@ -162,8 +162,9 @@ export function FleetOverviewDemo({ ros, viewer }) {
           rootObject: overlayRoot,
           tfClient,
           shape: new NavigationArrow({
-            size: 0.7,
-            strokeSize: 0,
+            size: 1.2,
+            strokeSize: 0.06,
+            strokeColor: createjs.Graphics.getRGB(34, 34, 34),
             fillColor: createjs.Graphics.getRGB(color.r, color.g, color.b),
           }),
           pool: settings.pool,

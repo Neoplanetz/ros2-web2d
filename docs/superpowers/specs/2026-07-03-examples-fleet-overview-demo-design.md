@@ -60,8 +60,11 @@ clients (existing convention — no incremental reconciliation).
   `createInitialMapViewFitter(viewer)`; later map updates do not re-fit.
 - Per-robot color identity: palette of 8 distinct hues, assigned by namespace
   index (cycles past 8). Within one robot's hue:
-  - Pose — `NavigationArrow`, size ~0.7, solid fill.
-  - Goal — `NavigationArrow`, size ~0.5, same hue at ~45% alpha (hollow feel).
+  - Pose — `NavigationArrow`, size 1.2 (deliberately larger than physical
+    scale so robots stay visible at whole-map zoom, like fleet dashboards),
+    solid fill with a thin dark outline (strokeSize 0.06) so any hue stays
+    visible over same-colored markers or map ink.
+  - Goal — `NavigationArrow`, size 0.9, same hue at ~45% alpha (hollow feel).
   - Path — stroke ~0.05 m in the robot hue.
   - Odom — `NavigationArrow`, size ~0.55, darker shade of the hue.
 - Markers render with library defaults (MarkerArray messages carry their own
