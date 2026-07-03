@@ -334,4 +334,34 @@ test.describe('ros2djs-ros2 smoke test (live rosbridge)', () => {
     );
     expect(criticalErrors).toHaveLength(0);
   });
+
+  test('Fleet Overview composes map + robot overlays + markers', async ({ page }) => {
+    const logs = collectConsole(page);
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' });
+    await page.waitForLoadState('load');
+    await waitForConnection(page);
+
+    await clickDemo(page, 'Fleet Overview');
+
+    // Defaults: 1 map + 1 marker topic + 4 robots x (pose, path, goal) = 14
+    await expect(page.locator('.demo-card .helper-text').nth(1)).toHaveText('Active clients: 14');
+
+    // A robot overlay client received a message and rendered (this status
+    // keeps recurring, so polling cannot miss it; do NOT assert the
+    // transient "Map ready" text — pose updates overwrite it within ~100ms).
+    await expect(page.locator('.demo-card .helper-text').first()).toContainText(/\/robot_\d+ (pose|path|goal) updated/i, { timeout: 20000 });
+
+    // The map dominates the sampled 200x200 corner when painted; robot
+    // arrows alone cannot reach 1000 painted pixels there.
+    await page.waitForTimeout(1000);
+    const pixels = await canvasHasPixelsDrawn(page);
+    console.log('FleetOverview pixels:', JSON.stringify(pixels));
+    expect(pixels.ok, 'canvas appears blank').toBe(true);
+    expect(pixels.painted, 'map does not appear painted').toBeGreaterThan(1000);
+
+    await page.screenshot({ path: 'smoke-test/screenshots/08-fleet-overview.png', fullPage: true });
+
+    const pageerrors = logs.filter((l) => l.includes('[pageerror]'));
+    expect(pageerrors, `page errors:\n${pageerrors.join('\n')}`).toHaveLength(0);
+  });
 });

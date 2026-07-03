@@ -9,8 +9,15 @@ import { LaserScanDemo } from './demos/LaserScanDemo.jsx';
 import { PolygonStampedDemo } from './demos/PolygonStampedDemo.jsx';
 import { NavigationOverlayDemo } from './demos/NavigationOverlayDemo.jsx';
 import { SharedPoolDemo } from './demos/SharedPoolDemo.jsx';
+import { FleetOverviewDemo } from './demos/FleetOverviewDemo.jsx';
 
 const DEMOS = [
+  {
+    key: 'fleet-overview',
+    label: 'Fleet Overview',
+    summary: 'Live map + per-robot pose, path, and goal overlays — one page, one color per robot.',
+    render: (props) => <FleetOverviewDemo {...props} />,
+  },
   {
     key: 'occupancy-grid',
     label: 'OccupancyGridClient',
@@ -57,7 +64,7 @@ const DEMOS = [
 
 export default function App() {
   const [viewer, setViewer] = useState(null);
-  const [activeDemoKey, setActiveDemoKey] = useState('occupancy-grid');
+  const [activeDemoKey, setActiveDemoKey] = useState('fleet-overview');
   const {
     ros,
     status,
