@@ -58,7 +58,7 @@ new OccupancyGridClient({ ros, rootObject: viewer.scene });
   helper in the example studio wires left-drag pan, right-drag
   rotate, and wheel zoom to any `Viewer`.
 - **Modern build** — ES modules, Rollup bundles (CJS / ESM /
-  IIFE), TypeScript declarations, and a vitest suite with 326
+  IIFE), TypeScript declarations, and a vitest suite with 334
   tests at the time of writing.
 
 ## Install
@@ -446,7 +446,7 @@ has since diverged into an independent, **ROS 2-only** library. The
 upstream project predates ROS 2 and has been unmaintained since 2022;
 `ros2-web2d` picks up the 2D-visualization role with a rebuilt TF
 integration, modern Rollup/ES module pipeline, a Vite + React example
-studio, and a test surface spanning 326 vitest cases plus a Playwright
+studio, and a test surface spanning 334 vitest cases plus a Playwright
 smoke suite. ROS 1 support is intentionally dropped.
 
 ## License
