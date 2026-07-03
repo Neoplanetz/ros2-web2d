@@ -31,6 +31,11 @@
  *       create or subscribe a ROSLIB.Topic; feed it via processMessage()
  *       instead. For render-only consumers that own the subscription
  *       elsewhere (shape + tfClient still apply in this mode).
+ *   * applyOrientation (optional, default true) - when false, the client
+ *       positions the marker but never applies the message yaw: the shape
+ *       keeps whatever rotation its owner set (e.g. a fixed upright goal
+ *       flag). On the TF path the SceneNode is driven with an identity
+ *       orientation for the same reason (frame transforms still apply).
  */
 ROS2D.PoseStampedClient = function(options) {
   EventEmitter.call(this);
@@ -58,6 +63,7 @@ ROS2D.PoseStampedClient = function(options) {
   this.marker.visible = false;
   this.tfClient = options.tfClient || null;
   this.node = null;
+  this.applyOrientation = options.applyOrientation !== false;
   if (!this.tfClient) {
     this.rootObject.addChild(this.marker);
   }
@@ -93,23 +99,32 @@ ROS2D.PoseStampedClient.prototype.processMessage = function(message) {
   if (this.tfClient) {
     this.marker.visible = true;
     var frame = (message.header && message.header.frame_id) || '';
+    // applyOrientation:false — the SceneNode composes TF x pose into its
+    // rotation, so the message yaw must be replaced with identity before
+    // it reaches the node (the shape keeps its own fixed rotation).
+    var nodePose = this.applyOrientation ? pose : {
+      position: pose.position,
+      orientation: { x: 0, y: 0, z: 0, w: 1 }
+    };
     if (!this.node) {
       this.node = new ROS2D.SceneNode({
         tfClient: this.tfClient,
         frame_id: frame,
-        pose: pose,
+        pose: nodePose,
         object: this.marker
       });
       this.rootObject.addChild(this.node);
     } else {
       if (this.node.frame_id !== frame) { this.node.setFrame(frame); }
-      this.node.setPose(pose);
+      this.node.setPose(nodePose);
     }
     // Marker stays at origin; SceneNode positions it.
   } else {
     this.marker.x = pose.position.x;
     this.marker.y = -pose.position.y;
-    this.marker.rotation = ROS2D.quaternionToGlobalTheta(pose.orientation || { x: 0, y: 0, z: 0, w: 1 });
+    if (this.applyOrientation) {
+      this.marker.rotation = ROS2D.quaternionToGlobalTheta(pose.orientation || { x: 0, y: 0, z: 0, w: 1 });
+    }
     this.marker.visible = true;
   }
   this.emit('change');
