@@ -32,6 +32,11 @@ export class PoseStampedClient extends EventEmitter<string | symbol, any> {
      *       create or subscribe a ROSLIB.Topic; feed it via processMessage()
      *       instead. For render-only consumers that own the subscription
      *       elsewhere (shape + tfClient still apply in this mode).
+     *   * applyOrientation (optional, default true) - when false, the client
+     *       positions the marker but never applies the message yaw: the shape
+     *       keeps whatever rotation its owner set (e.g. a fixed upright goal
+     *       flag). On the TF path the SceneNode is driven with an identity
+     *       orientation for the same reason (frame transforms still apply).
      */
     constructor(options: any);
     topicName: any;
@@ -40,6 +45,7 @@ export class PoseStampedClient extends EventEmitter<string | symbol, any> {
     arrow: any;
     tfClient: any;
     node: SceneNode;
+    applyOrientation: boolean;
     rosTopic: {
         name: any;
         messageType: any;

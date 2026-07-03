@@ -258,3 +258,68 @@ describe('ROS2D.OdometryClient', () => {
     expect(root.children).not.toContain(c.marker);
   });
 });
+
+// ─── applyOrientation:false (position-only, P1.1) ─────────────────────────
+// Same contract as PoseStampedClient: position mapping (and SceneNode TF)
+// without ever applying the message yaw to the managed marker.
+describe('ROS2D.OdometryClient applyOrientation:false (position-only)', () => {
+  const yawOdom = (x, y) => ({
+    header: { frame_id: 'map' },
+    pose: {
+      pose: { position: { x, y, z: 0 }, orientation: { x: 0, y: 0, z: 0.707, w: 0.707 } },
+    },
+  });
+
+  it('non-TF: positions the marker but leaves its rotation untouched', () => {
+    const shape = { x: 0, y: 0, rotation: -90, visible: false };
+    const theta = vi.spyOn(globalThis.ROS2D, 'quaternionToGlobalTheta');
+    const c = new OdometryClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: new FakeContainer(),
+      shape, applyOrientation: false,
+    });
+    fake.topics[fake.topics.length - 1].__emit(yawOdom(1, 2));
+    expect(c.marker.x).toBe(1);
+    expect(c.marker.y).toBe(-2);
+    expect(c.marker.rotation).toBe(-90);
+    expect(c.marker.visible).toBe(true);
+    expect(theta).not.toHaveBeenCalled();
+    theta.mockRestore();
+  });
+
+  it('default (option omitted) still applies message orientation', () => {
+    const shape = { x: 0, y: 0, rotation: -90, visible: false };
+    const c = new OdometryClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: new FakeContainer(), shape,
+    });
+    fake.topics[fake.topics.length - 1].__emit(yawOdom(1, 2));
+    expect(c.marker.rotation).toBe(0); // stubbed quaternionToGlobalTheta return
+  });
+
+  it('with tfClient: SceneNode receives identity orientation instead of message yaw', () => {
+    const tf = new fake.FakeTFClient({ fixedFrame: 'map' });
+    const c = new OdometryClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: new FakeContainer(),
+      tfClient: tf, applyOrientation: false,
+    });
+    const topic = fake.topics[fake.topics.length - 1];
+    topic.__emit(yawOdom(1, 2));
+    expect(c.node.pose.orientation).toEqual({ x: 0, y: 0, z: 0, w: 1 });
+    expect(c.node.pose.position.x).toBe(1);
+    topic.__emit(yawOdom(5, 6)); // setPose path must stay identity too
+    expect(c.node.pose.position.x).toBe(5);
+    expect(c.node.pose.orientation).toEqual({ x: 0, y: 0, z: 0, w: 1 });
+  });
+
+  it('subscribe:false + applyOrientation:false: processMessage keeps the fixed rotation (feed mode)', () => {
+    const shape = { x: 0, y: 0, rotation: -90, visible: false };
+    const c = new OdometryClient({
+      ros: new fake.ROSLIB.Ros(), rootObject: new FakeContainer(),
+      shape, subscribe: false, applyOrientation: false,
+    });
+    c.processMessage(yawOdom(3, 4));
+    expect(c.marker.x).toBe(3);
+    expect(c.marker.y).toBe(-4);
+    expect(c.marker.rotation).toBe(-90);
+    expect(c.marker.visible).toBe(true);
+  });
+});

@@ -26574,7 +26574,7 @@ var createjsExports = requireCreatejs();
 
 // import * as createjs from 'createjs-module';
 
-var REVISION = '1.11.1';
+var REVISION = '1.12.0';
 
 // convert the given global Stage coordinates to ROS coordinates
 createjsExports.Stage.prototype.globalToRos = function(x, y) {
@@ -28392,6 +28392,7 @@ var OdometryClient = /*@__PURE__*/(function (EventEmitter) {
     this.marker.visible = false;
     this.tfClient = options.tfClient || null;
     this.node = null;
+    this.applyOrientation = options.applyOrientation !== false;
     if (!this.tfClient) {
       this.rootObject.addChild(this.marker);
     }
@@ -28432,22 +28433,31 @@ var OdometryClient = /*@__PURE__*/(function (EventEmitter) {
     if (this.tfClient) {
       this.marker.visible = true;
       var frame = (message.header && message.header.frame_id) || '';
+      // applyOrientation:false — the SceneNode composes TF x pose into its
+      // rotation, so the message yaw must be replaced with identity before
+      // it reaches the node (the shape keeps its own fixed rotation).
+      var nodePose = this.applyOrientation ? pose : {
+        position: pose.position,
+        orientation: { x: 0, y: 0, z: 0, w: 1 }
+      };
       if (!this.node) {
         this.node = new SceneNode({
           tfClient: this.tfClient,
           frame_id: frame,
-          pose: pose,
+          pose: nodePose,
           object: this.marker
         });
         this.rootObject.addChild(this.node);
       } else {
         if (this.node.frame_id !== frame) { this.node.setFrame(frame); }
-        this.node.setPose(pose);
+        this.node.setPose(nodePose);
       }
     } else {
       this.marker.x = pose.position.x;
       this.marker.y = -pose.position.y;
-      this.marker.rotation = quaternionToGlobalTheta(pose.orientation || { x: 0, y: 0, z: 0, w: 1 });
+      if (this.applyOrientation) {
+        this.marker.rotation = quaternionToGlobalTheta(pose.orientation || { x: 0, y: 0, z: 0, w: 1 });
+      }
       this.marker.visible = true;
     }
     this.emit('change');
@@ -28635,6 +28645,7 @@ var PoseStampedClient = /*@__PURE__*/(function (EventEmitter) {
     this.marker.visible = false;
     this.tfClient = options.tfClient || null;
     this.node = null;
+    this.applyOrientation = options.applyOrientation !== false;
     if (!this.tfClient) {
       this.rootObject.addChild(this.marker);
     }
@@ -28673,23 +28684,32 @@ var PoseStampedClient = /*@__PURE__*/(function (EventEmitter) {
     if (this.tfClient) {
       this.marker.visible = true;
       var frame = (message.header && message.header.frame_id) || '';
+      // applyOrientation:false — the SceneNode composes TF x pose into its
+      // rotation, so the message yaw must be replaced with identity before
+      // it reaches the node (the shape keeps its own fixed rotation).
+      var nodePose = this.applyOrientation ? pose : {
+        position: pose.position,
+        orientation: { x: 0, y: 0, z: 0, w: 1 }
+      };
       if (!this.node) {
         this.node = new SceneNode({
           tfClient: this.tfClient,
           frame_id: frame,
-          pose: pose,
+          pose: nodePose,
           object: this.marker
         });
         this.rootObject.addChild(this.node);
       } else {
         if (this.node.frame_id !== frame) { this.node.setFrame(frame); }
-        this.node.setPose(pose);
+        this.node.setPose(nodePose);
       }
       // Marker stays at origin; SceneNode positions it.
     } else {
       this.marker.x = pose.position.x;
       this.marker.y = -pose.position.y;
-      this.marker.rotation = quaternionToGlobalTheta(pose.orientation || { x: 0, y: 0, z: 0, w: 1 });
+      if (this.applyOrientation) {
+        this.marker.rotation = quaternionToGlobalTheta(pose.orientation || { x: 0, y: 0, z: 0, w: 1 });
+      }
       this.marker.visible = true;
     }
     this.emit('change');

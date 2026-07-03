@@ -168,8 +168,8 @@ returns a 0..255 RGBA tuple.
 | `ImageMapClient` | (none) | Loads `map.yaml` + image asset directly; supports `.png` / `.svg` / `.pgm` |
 | `MarkerArrayClient` | `visualization_msgs/MarkerArray` | Supports ADD / MODIFY / DELETE / DELETEALL and lifetimes |
 | `PathClient` | `nav_msgs/Path` | Draws the path through `PathShape` |
-| `PoseStampedClient` | `geometry_msgs/PoseStamped` | Default arrow via `NavigationArrow`; pass `shape` to override |
-| `OdometryClient` | `nav_msgs/Odometry` | Same arrow surface as `PoseStampedClient`; extracts `pose.pose` |
+| `PoseStampedClient` | `geometry_msgs/PoseStamped` | Default arrow via `NavigationArrow`; pass `shape` to override; `applyOrientation: false` for position-only markers |
+| `OdometryClient` | `nav_msgs/Odometry` | Same arrow surface as `PoseStampedClient`; extracts `pose.pose`; supports `applyOrientation: false` |
 | `PoseArrayClient` | `geometry_msgs/PoseArray` | Rebuilds every message; useful for AMCL particle clouds |
 | `LaserScanClient` | `sensor_msgs/LaserScan` | 2D hit points with optional `sampleStep` / `maxRange` |
 | `PolygonStampedClient` | `geometry_msgs/PolygonStamped` | Closed outline via `PolygonShape`; default topic `/local_costmap/published_footprint` for active nav2 footprints; optional `tfClient` follows `header.frame_id` when frame conversion is needed |
@@ -243,6 +243,64 @@ Supported on every subscribe-only Client: `PoseStampedClient`,
 `LaserScanClient`, `MarkerArrayClient`, and `OccupancyGridClient`.
 `ImageMapClient` (loads a static image) and `OccupancyGridSrvClient` (a service
 call) are not topic subscribers, so they have no feed mode.
+
+### Position-only pose markers (`applyOrientation: false`)
+
+`PoseStampedClient` and `OdometryClient` accept `applyOrientation: false` for
+markers whose rotation is owned by the shape itself — e.g. a goal flag that
+must always stand upright regardless of the goal yaw:
+
+```js
+const flag = new ROS2D.NavigationImage({ size: 0.6, image: flagSvgDataUri });
+flag.rotation = -90; // fixed upright; the client will never overwrite it
+
+new PoseStampedClient({
+  ros, topic: '/robot_0/goal_pose', rootObject: viewer.scene,
+  shape: flag,
+  applyOrientation: false, // position (and TF) only — message yaw is ignored
+});
+```
+
+The marker still follows `pose.position` (Y-negated), still hides until the
+first message, and still gets `SceneNode` TF wrapping with a `tfClient` — the
+node is simply driven with an identity orientation so frame transforms apply
+without composing the message yaw. Combine with `subscribe: false` to feed a
+position-only marker from your own transport.
+
+## Shared subscription pool (`pool: true`)
+
+By default every Client opens its own `ROSLIB.Topic` — two clients on the same
+topic mean two rosbridge subscriptions. Passing `pool: true` opts a
+subscribe-only Client into a refcounted, per-connection subscription pool: all
+pooled Clients whose wire identity matches (topic name + message type +
+`throttle_rate` / `queue_length` / `compression` / `reconnect_on_close`) share
+**one** underlying `ROSLIB.Topic`.
+
+```js
+// One rosbridge subscription on /markers, two rendering clients:
+new MarkerArrayClient({ ros, topic: '/markers', rootObject: layerA, pool: true });
+new MarkerArrayClient({ ros, topic: '/markers', rootObject: layerB, pool: true });
+```
+
+Pool semantics:
+
+- **Refcounted teardown with a grace window.** When the last pooled consumer
+  of a topic unsubscribes, the real `unsubscribe()` is deferred (default
+  5000 ms) so a quick unmount→remount reuses the live subscription instead of
+  churning the bridge — rapid subscribe/unsubscribe cycles can trip a known
+  `rclpy destroy_subscription` race in rosbridge. Configure with
+  `ROS2D.setTopicPoolGraceMs(ms)` (`0` = tear down immediately).
+- **Late-join replay.** The last dispatched message is retained and replayed
+  to a Client that joins an already-live shared topic, so a pooled Client on a
+  latched topic (e.g. a map) still renders even if it subscribes after the
+  last publish. The retained message is dropped on real teardown — nothing
+  stale replays once the wire subscription actually ends.
+- **Consumer isolation.** Each pooled Client is dispatched in its own
+  `try/catch`; one throwing consumer cannot starve its siblings.
+- **Strictly opt-in.** Omit `pool` and `_makeTopic` behaves exactly as before
+  (a fresh `ROSLIB.Topic`, immediate unsubscribe). Clients whose wire options
+  differ never coalesce — they get separate pooled entries. `subscribe: false`
+  Clients never create a topic at all, so they never touch the pool.
 
 ## Footprint and polygon overlays
 

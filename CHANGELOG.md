@@ -3,6 +3,33 @@
 All notable changes to this project are documented here.
 The project follows [Semantic Versioning](https://semver.org/).
 
+## [1.12.0] — 2026-07-03
+
+### Added
+
+- **`applyOrientation: false` on `PoseStampedClient` / `OdometryClient`
+  (position-only markers).** When set, the client positions the managed marker
+  from `pose.position` (Y-negated, hidden-until-first-message as usual) but
+  never applies the message yaw — the shape keeps whatever rotation its owner
+  set. On the TF path the `SceneNode` is driven with an identity orientation,
+  so frame transforms still apply without composing the message yaw. For
+  markers whose rotation is owned by the shape itself, e.g. a goal flag that
+  must always stand upright regardless of goal heading. Default `true` —
+  omitting the option leaves both clients byte-for-byte unchanged. Composes
+  with `subscribe: false` (feed mode) and `pool: true`.
+
+  Motivated by omnifleet's `<GoalMarker>`, which could not adopt feed mode in
+  1.10.0 because the client's unconditional rotation write conflicted with the
+  flag's fixed −90° upright rotation.
+
+### Documentation
+
+- **README: shared subscription pool section.** `pool: true` semantics
+  (wire-identity key, grace-window teardown + `setTopicPoolGraceMs`, late-join
+  replay, consumer isolation, strict opt-in) were only described in the 1.11.0
+  changelog entry; the README now documents them alongside the feed-mode
+  rendering models, plus the new position-only marker pattern.
+
 ## [1.11.1] — 2026-07-02
 
 ### Fixed
