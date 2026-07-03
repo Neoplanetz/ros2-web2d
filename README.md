@@ -11,6 +11,13 @@ onto an [EaselJS](https://createjs.com/easeljs) stage, driven by
 > the original [ros2djs](https://github.com/RobotWebTools/ros2djs) if
 > you are on ROS 1.
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Neoplanetz/ros2-web2d/main/docs/media/example-studio-fleet.png"
+       alt="ros2-web2d Fleet Overview demo: a live occupancy grid with a topology-graph MarkerArray and four robots' poses, one color per robot"
+       width="850">
+</p>
+<p align="center"><em>The <a href="./examples">example studio</a>'s Fleet Overview demo, live over rosbridge — one shared map, a topology-graph <code>MarkerArray</code>, and four robots' poses, one color per robot.</em></p>
+
 ```js
 import { Viewer, OccupancyGridClient } from 'ros2-web2d';
 import ROSLIB from 'roslib';
@@ -51,7 +58,7 @@ new OccupancyGridClient({ ros, rootObject: viewer.scene });
   helper in the example studio wires left-drag pan, right-drag
   rotate, and wheel zoom to any `Viewer`.
 - **Modern build** — ES modules, Rollup bundles (CJS / ESM /
-  IIFE), TypeScript declarations, and a vitest suite with 289
+  IIFE), TypeScript declarations, and a vitest suite with 326
   tests at the time of writing.
 
 ## Install
@@ -308,14 +315,25 @@ npm install
 npm run dev    # → http://localhost:5173
 ```
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Neoplanetz/ros2-web2d/main/docs/media/example-studio-app.png"
+       alt="The full example studio: connection panel, demo list, Fleet Overview controls, and the shared viewer canvas"
+       width="850">
+</p>
+
 Demos included:
 
+- **Fleet Overview** — live map + per-robot pose / path / goal overlays,
+  one color per robot namespace (the screenshots above)
 - **OccupancyGridClient** — live `/map` with one-shot auto-fit
 - **ImageMapClient** — bundled `sample_map.pgm` + YAML, no ROS needed
 - **MarkerArrayClient** — TF-aware marker overlays
 - **LaserScanClient** — `/scan` with a toggleable TF client
+- **PolygonStampedClient** — nav2 footprint outlines
 - **Navigation Overlays** — `path + pose + odom + particlecloud`
   composed together
+- **Shared Subscription Pool** — N clients on one topic sharing one wire
+  subscription (`pool: true`) with a live wire-op readout
 
 `examples/src/lib/ros2dHelpers.js` also exports reusable pieces —
 `enableViewerMouseControls`, `createInitialMapViewFitter`,
@@ -370,7 +388,7 @@ has since diverged into an independent, **ROS 2-only** library. The
 upstream project predates ROS 2 and has been unmaintained since 2022;
 `ros2-web2d` picks up the 2D-visualization role with a rebuilt TF
 integration, modern Rollup/ES module pipeline, a Vite + React example
-studio, and a test surface spanning 289 vitest cases plus a Playwright
+studio, and a test surface spanning 326 vitest cases plus a Playwright
 smoke suite. ROS 1 support is intentionally dropped.
 
 ## License
